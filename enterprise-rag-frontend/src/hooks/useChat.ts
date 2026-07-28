@@ -1,4 +1,5 @@
 import { useChatStore } from '../store/chatStore';
+import { askChat } from '../api/chat';
 
 export function useChat() {
   const {
@@ -34,35 +35,42 @@ export function useChat() {
     setAttachedDoc(null);
     setIsGenerating(true);
 
-    setTimeout(() => {
+    try {
+      // Call the actual backend API
+      const response = await askChat(text, activeSession?.id, 5);
+
       const assistantMsg = {
         id: 'msg-' + (Date.now() + 1),
         sender: 'assistant' as const,
-        content: `Based on your internal enterprise knowledge base, here is the answer:
-
-**Key Takeaways:**
-- **Indexed Content:** Verified against attached document sources.
-- **Hybrid Search Score:** Combined dense vector embeddings with BM25 keyword matching for high precision.
-- **Performance:** Retained context window within 2048 output tokens.
-
-Would you like me to analyze any additional sections or extract table metrics?`,
+        content: response.answer,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        sources: [
-          {
-            id: 's1',
-            title: userMsg.attachedDoc?.name || 'Enterprise_Docs.pdf',
-            score: 0.96,
-            snippet: 'Relevant context retrieved from chunk #14...',
-            pageNumber: 2,
-          },
-        ],
-        tokensUsed: 284,
-        latencyMs: 142,
+        sources: response.sources?.map((src: any, idx: number) => ({
+          id: `s${idx + 1}`,
+          title: src.document_name || src.title || 'Document',
+          score: src.score || 0,
+          snippet: src.chunk_text || src.snippet || '',
+          pageNumber: src.page_number || src.pageNumber,
+        })) || [],
+        tokensUsed: response.metadata?.tokens_used,
+        latencyMs: response.metadata?.latency_ms,
       };
 
       addMessage(assistantMsg);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      
+      // Add error message
+      const errorMsg = {
+        id: 'msg-' + (Date.now() + 1),
+        sender: 'assistant' as const,
+        content: '❌ Failed to get response from the server. Please make sure the backend is running and try again.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      
+      addMessage(errorMsg);
+    } finally {
       setIsGenerating(false);
-    }, 1200);
+    }
   };
 
   return {

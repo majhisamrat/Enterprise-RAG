@@ -4,6 +4,9 @@ export interface SourceDocument {
   score: number;
   snippet: string;
   pageNumber?: number;
+  document_name?: string;
+  chunk_text?: string;
+  page_number?: number;
 }
 
 export interface ChatMessage {
@@ -32,7 +35,11 @@ export interface ChatSession {
 
 export interface ChatResponse {
   answer: string;
-  sources: SourceDocument[];
-  tokens_used?: number;
-  latency_ms?: number;
+  session_id?: string;
+  sources: any[];
+  metadata: {
+    tokens_used?: number;
+    latency_ms?: number;
+    [key: string]: any;
+  };
 }
