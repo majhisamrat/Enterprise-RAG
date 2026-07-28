@@ -1,0 +1,1 @@
+Enterprise RAG pipeline test document content for indexing.

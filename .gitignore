@@ -1,0 +1,169 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+.editorconfig
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+.nyc_output/
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.prod
+.env.production
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.local
+out/
+
+# Node (Frontend)
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.npm
+.yarn
+
+# Vite
+.vite/
+.cache/
+.parcel-cache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+db.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.bak
+*.orig
+*.rej
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Misc
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.env.dev
+.env.test
+config.local.py
+
+# Pytest
+.pytest_cache
+.pytest-result
+
+# Hot reload
+hot_reload/
+
+# Docker
+docker-compose.override.yml
+
+# IDE Cache
+.pylint.d/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter
+.ipynb_checkpoints
+
+# Temporary data
+temp/
+data/temp/
+logs/
+
+# OS specific
+.vscode/settings.json
+.idea/shelf
+.idea/workspace.xml
+.idea/tasks.xml
+
+# Frontend specific
+enterprise-rag-frontend/.env.local
+enterprise-rag-frontend/.env.*.local
+enterprise-rag-frontend/dist/
+enterprise-rag-frontend/node_modules/
+enterprise-rag-frontend/.vite/
+
+# Backend specific
+app/__pycache__/
+tests/__pycache__/
+alembic/__pycache__/
+
+# Personal notes
+notes.md
+TODO.md
+FIXME.md

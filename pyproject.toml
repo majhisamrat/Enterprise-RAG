@@ -1,0 +1,15 @@
+[project]
+name = "enterprise-rag"
+version = "1.0.0"
+description = "Enterprise Retrieval-Augmented Generation Platform"
+readme = "README.md"
+requires-python = ">=3.13"
+
+[tool.pyrefly]
+search_paths = [".venv/Lib/site-packages", "."]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+extraPaths = [".venv/Lib/site-packages", "."]
+reportMissingImports = "none"

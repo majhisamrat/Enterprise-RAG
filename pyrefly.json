@@ -1,0 +1,9 @@
+{
+  "search_paths": [
+    ".venv/Lib/site-packages",
+    "."
+  ],
+  "disabled_rules": [
+    "missing-import"
+  ]
+}
