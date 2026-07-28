@@ -1,0 +1,2 @@
+import { api } from './axios'; import type { UploadResult } from '../types/document';
+export const uploadDocument = async (file: File, onProgress?: (value: number) => void) => { const body = new FormData(); body.append('file', file); const { data } = await api.post<UploadResult>('/documents/upload', body, { onUploadProgress: (event) => onProgress?.(Math.round((event.loaded * 100) / (event.total || event.loaded))) }); return data; };
