@@ -25,12 +25,14 @@ def get_orchestrator():
 class ChatRequest(BaseModel):
     query: str
     session_id: Optional[str] = None
+    knowledge_base_id: Optional[str] = None  # NEW: optional KB filter
     top_k: int = 10
 
 
 class ChatResponse(BaseModel):
     answer: str
     session_id: Optional[str]
+    knowledge_base_id: Optional[str]  # NEW: show which KB was used
     sources: List[Dict[str, Any]]
     metadata: Dict[str, Any]
 
@@ -43,10 +45,30 @@ async def chat(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        app_logger.info(f"Chat Request from user {current_user.id}: {request.query}")
+        app_logger.info(
+            f"Chat Request from user {current_user.id}: {request.query} "
+            f"(KB: {request.knowledge_base_id})"
+        )
 
         org_id = tenant_context.organization_id or getattr(current_user, "organization_id", None) or uuid.UUID("00000000-0000-0000-0000-000000000001")
         usr_id = getattr(current_user, "id", None) or uuid.UUID("00000000-0000-0000-0000-000000000001")
+
+        # Parse KB ID if provided
+        kb_uuid = None
+        if request.knowledge_base_id:
+            try:
+                kb_uuid = uuid.UUID(request.knowledge_base_id)
+                # Verify KB belongs to org
+                from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
+                kb_repo = KnowledgeBaseRepository(db)
+                kb = await kb_repo.get_by_id(kb_uuid)
+                if not kb or kb.organization_id != org_id:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Knowledge base not found or does not belong to your organization"
+                    )
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid knowledge_base_id UUID")
 
         sess_uuid = None
         if request.session_id:
@@ -59,6 +81,7 @@ async def chat(
             new_session = ChatSession(
                 organization_id=org_id,
                 user_id=usr_id,
+                knowledge_base_id=kb_uuid,  # NEW: associate with KB
                 title=request.query[:50],
             )
             await chat_repo.create(new_session)
@@ -68,6 +91,7 @@ async def chat(
         response = await orchestrator_instance.chat(
             query=request.query,
             organization_id=tenant_context.organization_id,
+            knowledge_base_id=kb_uuid,  # NEW: pass KB filter to retriever
             department=tenant_context.department,
             session_id=sess_uuid,
             top_k=request.top_k,
@@ -77,9 +101,12 @@ async def chat(
         return ChatResponse(
             answer=response["answer"],
             session_id=str(sess_uuid) if sess_uuid else None,
+            knowledge_base_id=str(kb_uuid) if kb_uuid else None,  # NEW: return KB info
             sources=response["sources"],
             metadata=response["metadata"],
         )
+    except HTTPException:
+        raise
     except Exception as e:
         app_logger.exception(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -17,12 +17,16 @@ class SparseRetriever(BaseRetriever):
         query: str,
         limit: int = 10,
         organization_id: Optional[uuid.UUID] = None,
+        knowledge_base_id: Optional[uuid.UUID] = None,
+        upload_id: Optional[uuid.UUID] = None,
         department: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        logger.info("Running sparse BM25 retrieval.")
+        logger.info(f"Running sparse BM25 retrieval with KB filtering (KB: {knowledge_base_id})")
         return self.engine.search(
             query=query,
             limit=limit,
             organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+            upload_id=upload_id,
             department=department,
         )

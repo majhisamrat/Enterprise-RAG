@@ -25,22 +25,45 @@ class HybridRetriever:
         query: str,
         limit: int = 10,
         organization_id: Optional[uuid.UUID] = None,
+        knowledge_base_id: Optional[uuid.UUID] = None,
+        upload_id: Optional[uuid.UUID] = None,
         department: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        logger.info(f"Running hybrid retrieval for query: '{query}' (Org: {organization_id})")
+        """
+        Perform hybrid retrieval with optional KB/upload filtering.
+        
+        - **knowledge_base_id**: Filter to single KB only (optional)
+        - **upload_id**: Filter to single upload only (optional)
+        """
+        logger.info(
+            f"Running hybrid retrieval for query: '{query}' "
+            f"(Org: {organization_id}, KB: {knowledge_base_id}, Upload: {upload_id})"
+        )
 
         # Keep the candidate set bounded.  Cross-encoder inference on CPU grows
         # linearly with this number and was the dominant source of query latency.
         limit = min(limit, settings.MAX_RETRIEVAL_RESULTS)
         candidate_limit = min(max(limit * 2, limit), settings.RERANKER_MAX_CANDIDATES)
 
-        # Run dense and sparse retrieval concurrently
+        # Run dense and sparse retrieval concurrently with KB filtering
         with ThreadPoolExecutor(max_workers=2) as executor:
             dense_future = executor.submit(
-                self.dense.retrieve, query, candidate_limit, organization_id, department
+                self.dense.retrieve,
+                query,
+                candidate_limit,
+                organization_id,
+                knowledge_base_id,
+                upload_id,
+                department,
             )
             sparse_future = executor.submit(
-                self.sparse.retrieve, query, candidate_limit, organization_id, department
+                self.sparse.retrieve,
+                query,
+                candidate_limit,
+                organization_id,
+                knowledge_base_id,
+                upload_id,
+                department,
             )
 
             dense_results = dense_future.result()

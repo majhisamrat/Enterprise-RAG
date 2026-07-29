@@ -1,6 +1,6 @@
-# Enterprise RAG - Complete Full-Stack Application
+# Enterprise RAG - Production-Grade Full-Stack Application
 
-A production-grade Enterprise Retrieval-Augmented Generation (RAG) system with a modern frontend and powerful backend. Built with FastAPI (Python) and React (TypeScript), featuring hybrid vector + keyword search, multi-tenant support, and a Napkin.ai-inspired UI.
+A production-grade Enterprise Retrieval-Augmented Generation (RAG) system with hierarchical Knowledge Base management, hybrid vector + keyword search, real-time analytics, multi-tenant isolation, and a modern React frontend.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
@@ -8,85 +8,83 @@ A production-grade Enterprise Retrieval-Augmented Generation (RAG) system with a
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+---
+
 ## 🌟 Features
 
-### Backend (FastAPI + Python)
-- 🔍 **Hybrid Search**: Vector (Qdrant) + Keyword (BM25) retrieval with fusion scoring
-- 🤖 **Multiple LLM Support**: Google Gemini, Groq, OpenAI-compatible models
-- 📚 **Advanced Document Processing**: Multi-format support (PDF, Word, Markdown, HTML)
-- 🎯 **Semantic Chunking**: Intelligent document splitting with overlap and context preservation
-- 🔄 **Re-ranking**: Cross-encoder models for improved retrieval accuracy
-- 🏢 **Multi-tenant Architecture**: Organization-level data isolation
-- 🔐 **Google OAuth 2.0**: Secure authentication and authorization
-- 📊 **Vector Database**: Qdrant for fast similarity search
-- 🔎 **Keyword Search**: Elasticsearch/BM25 for exact matching
-- ⚡ **Async Task Processing**: Celery for background jobs
-- 📈 **Monitoring & Metrics**: Built-in performance tracking
-- 🐳 **Docker Support**: Containerized deployment
+### 🏢 Hierarchical Knowledge Bases & Ingestion
+- 📚 **Knowledge Base Isolation**: Organize documents logically into domain-specific Knowledge Bases with organizational tenant scoping.
+- 📄 **Multi-Format Ingestion**: Process PDF, DOCX, PPTX, XLSX, Markdown, CSV, and plain text files with automatic clean chunking and pre-warmed embeddings.
+- ⚡ **Sync & Async Ingestion**: Real-time synchronous ingestion for fast files and Celery background workers for large batch workloads.
+- 🔄 **Cascading KB Reindexing & Deletion**: Intelligently reindex or purge documents, upload records, and corresponding vector payloads cleanly.
 
-### Frontend (React + TypeScript)
-- 🎨 **Napkin.ai-Inspired Design**: Minimalist, modern UI with colorful gradients
-- 💬 **Real-time Chat Interface**: Streaming responses with markdown support
-- 📄 **Document Management**: Upload, view, and manage documents
-- 📊 **Analytics Dashboard**: Monitor retrieval accuracy and performance
-- 📝 **Blog System**: 9 comprehensive articles on RAG concepts
-- 🎯 **Search & Filtering**: Advanced document search capabilities
-- 📱 **Fully Responsive**: Works on mobile, tablet, and desktop
-- ✨ **Smooth Animations**: Framer Motion for polished interactions
-- 🔐 **Secure Authentication**: Google OAuth integration
-- 🎛️ **Settings Management**: Configure models, embeddings, and preferences
+### 🔍 Search & RAG Orchestration
+- 🎯 **Hybrid Search**: Dense vector retrieval via Qdrant + Sparse keyword matching via Elasticsearch/BM25 with Reciprocal Rank Fusion (RRF).
+- 🎛️ **Targeted Domain Filtering**: Filter RAG chat queries down to a specific `knowledge_base_id` or query globally across tenant assets.
+- 🤖 **Multi-LLM Support**: Built-in integrations for Google Gemini, Groq, and OpenAI-compatible models.
+- 🎯 **Cross-Encoder Reranking**: Opt-in re-ranking model for maximum retrieval precision.
+
+### 📊 Enterprise Analytics & Dashboard
+- 📈 **Query Analytics**: Track query frequencies, context document usages, and latency breakdowns ($p_{50}, p_{95}, p_{99}$).
+- 📊 **Usage Metrics**: Daily throughput summaries, page count indexing tracking, and vector volume statistics.
+- ⚡ **Real-time System Status**: Health monitoring across FastAPI, Postgres, Qdrant, Redis, and Elasticsearch.
+
+### 🎨 Frontend & Design System
+- 🎨 **Modern Minimalist UI**: Built with React 18, TypeScript, Tailwind CSS, and Framer Motion micro-animations.
+- 💬 **Interactive RAG Chat Interface**: Real-time streaming response layout with verifiable inline citation badges and source snippets.
+- 📱 **Responsive Dashboard**: Mobile, tablet, and desktop views for overview metrics, document upload pipelines, and workspace settings.
+
+---
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Frontend (React 18 + TS)                         │
+│   • Home / Login   • Chat Interface   • Upload   • Analytics / Dashboard  │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ REST API (/api/v1)
+┌────────────────────────────────────▼────────────────────────────────────┐
+│                        Backend (FastAPI Engine)                         │
+│   • Auth & Tenant   • Knowledge Base Mgr   • Hybrid RAG   • Analytics    │
+└─────────┬───────────────────┬──────────────────────┬────────────────────┘
+          │                   │                      │
+    ┌─────▼─────┐       ┌─────▼─────┐          ┌─────▼─────┐
+    │  Qdrant   │       │Elasticsearch│        │ PostgreSQL│
+    │  Vector   │       │  BM25 /     │        │  Metadata │
+    │   Store   │       │  Keyword    │        │  Store    │
+    └───────────┘       └───────────┘          └───────────┘
+```
+
+---
 
 ## 📋 Table of Contents
 
-- [Architecture](#architecture)
-- [Quick Start](#quick-start)
+- [Quick Start](#-quick-start)
   - [Prerequisites](#prerequisites)
   - [Backend Setup](#backend-setup)
   - [Frontend Setup](#frontend-setup)
   - [Docker Setup](#docker-setup)
-- [Project Structure](#project-structure)
-- [Configuration](#configuration)
-- [API Documentation](#api-documentation)
-- [Development](#development)
-- [Deployment](#deployment)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
+- [Project Structure](#-project-structure)
+- [Configuration](#-configuration)
+- [API Documentation](#-api-documentation)
+- [Testing](#-testing)
+- [License](#-license)
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Frontend (React)                         │
-│  • Chat Interface  • Document Manager  • Analytics          │
-└───────────────────────┬─────────────────────────────────────┘
-                        │ REST API
-┌───────────────────────┴─────────────────────────────────────┐
-│                     Backend (FastAPI)                        │
-│  • RAG Orchestrator  • LLM Integration  • Auth Service      │
-└─────────┬───────────────────┬──────────────────┬────────────┘
-          │                   │                  │
-    ┌─────▼─────┐      ┌─────▼─────┐     ┌─────▼─────┐
-    │  Qdrant   │      │Elasticsearch│     │ PostgreSQL│
-    │  Vector   │      │   Keyword   │     │ Metadata  │
-    │   Store   │      │   Search    │     │  Database │
-    └───────────┘      └───────────┘     └───────────┘
-```
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-**Backend:**
-- Python 3.11+
-- PostgreSQL 14+
-- Redis (for caching)
-- Qdrant (vector database)
-- Elasticsearch 8+ (optional, for keyword search)
+- **Python 3.11+**
+- **Node.js 18+** & npm / yarn / pnpm
+- **PostgreSQL 14+**
+- **Qdrant** vector database (port `6333`)
+- **Redis** for task queuing and caching (port `6379`)
+- **Elasticsearch 8+** (optional, for sparse keyword retrieval)
 
-**Frontend:**
-- Node.js 18+
-- npm or yarn or pnpm
+---
 
 ### Backend Setup
 
@@ -96,15 +94,15 @@ A production-grade Enterprise Retrieval-Augmented Generation (RAG) system with a
    cd Enterprise-RAG
    ```
 
-2. **Create and activate virtual environment**
+2. **Create & activate virtual environment**
    ```bash
-   python -m venv venv
-   
    # On Windows
-   venv\Scripts\activate
-   
+   python -m venv .venv
+   .venv\Scripts\activate
+
    # On macOS/Linux
-   source venv/bin/activate
+   python3 -m venv .venv
+   source .venv/bin/activate
    ```
 
 3. **Install dependencies**
@@ -112,37 +110,24 @@ A production-grade Enterprise Retrieval-Augmented Generation (RAG) system with a
    pip install -r requirements.txt
    ```
 
-4. **Set up environment variables**
+4. **Environment configuration**
    ```bash
    cp .env.example .env
    ```
-   
-   Edit `.env` with your configuration:
+
+   Configure required keys in `.env`:
    ```env
-   # Database
-   DATABASE_URL=postgresql://user:password@localhost:5432/enterprise_rag
-   
-   # Redis
+   # Database & Storage
+   DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/enterprise_rag
    REDIS_URL=redis://localhost:6379/0
-   
-   # Qdrant Vector Store
    QDRANT_URL=http://localhost:6333
-   QDRANT_API_KEY=your_qdrant_key
-   
-   # LLM Provider (choose one or multiple)
+
+   # LLM Providers
    GOOGLE_API_KEY=your_gemini_api_key
    GROQ_API_KEY=your_groq_api_key
-   
-   # Google OAuth
-   GOOGLE_CLIENT_ID=your_google_client_id
-   GOOGLE_CLIENT_SECRET=your_google_client_secret
-   
+
    # Security
-   JWT_SECRET_KEY=your_super_secret_key_change_in_production
-   
-   # Application
-   APP_ENV=development
-   DEBUG=True
+   JWT_SECRET_KEY=your_secret_jwt_key
    ```
 
 5. **Run database migrations**
@@ -150,22 +135,18 @@ A production-grade Enterprise Retrieval-Augmented Generation (RAG) system with a
    alembic upgrade head
    ```
 
-6. **Start the backend server**
+6. **Start the backend development server**
    ```bash
-   # Development mode with hot reload
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   
-   # Or use the Makefile
-   make dev
    ```
-   
-   Backend will be available at: **http://localhost:8000**
-   
-   API documentation: **http://localhost:8000/docs**
+   - REST API Base: `http://localhost:8000/api/v1`
+   - Interactive Swagger Docs: `http://localhost:8000/docs`
+
+---
 
 ### Frontend Setup
 
-1. **Navigate to frontend directory**
+1. **Navigate to the frontend directory**
    ```bash
    cd enterprise-rag-frontend
    ```
@@ -173,393 +154,130 @@ A production-grade Enterprise Retrieval-Augmented Generation (RAG) system with a
 2. **Install dependencies**
    ```bash
    npm install
-   # or
-   yarn install
-   # or
-   pnpm install
    ```
 
-3. **Set up environment variables**
+3. **Environment configuration**
    ```bash
    cp .env.example .env.local
    ```
-   
-   Edit `.env.local`:
+   Set API URL in `.env.local`:
    ```env
-   VITE_API_URL=http://localhost:8000
-   VITE_GOOGLE_CLIENT_ID=your_google_client_id
+   VITE_API_BASE_URL=http://localhost:8000/api/v1
    ```
 
-4. **Start the development server**
+4. **Start the frontend development server**
    ```bash
    npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
    ```
-   
-   Frontend will be available at: **http://localhost:5173**
+   - Frontend Application: `http://localhost:5173`
 
-5. **Build for production**
-   ```bash
-   npm run build
-   # or
-   yarn build
-   # or
-   pnpm build
-   ```
-   
-   Production files will be in the `dist/` folder.
+---
 
 ### Docker Setup
 
-The easiest way to run the entire stack:
+To launch the full stack with dependencies using Docker Compose:
 
-1. **Make sure Docker and Docker Compose are installed**
+```bash
+docker-compose up -d
+```
 
-2. **Start all services**
-   ```bash
-   docker-compose up -d
-   ```
+- **Frontend App**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8000`
+- **Qdrant Dashboard**: `http://localhost:6333/dashboard`
 
-3. **Access the application**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
-   - Qdrant Dashboard: http://localhost:6333/dashboard
-
-4. **Stop all services**
-   ```bash
-   docker-compose down
-   ```
+---
 
 ## 📁 Project Structure
 
 ```
 Enterprise-RAG/
-├── app/                          # Backend application
-│   ├── api/                      # API routes and endpoints
-│   │   ├── routes/              # Route handlers
-│   │   │   ├── auth.py          # Authentication endpoints
-│   │   │   ├── chat.py          # Chat/query endpoints
-│   │   │   ├── documents.py     # Document management
-│   │   │   ├── search.py        # Search endpoints
-│   │   │   └── upload.py        # File upload
-│   │   └── dependencies.py      # Dependency injection
-│   ├── config/                   # Configuration
-│   ├── db/                       # Database models and repos
-│   │   ├── models.py            # SQLAlchemy models
-│   │   └── repositories/        # Data access layer
-│   ├── embeddings/              # Embedding generation
-│   ├── ingestion/               # Document processing
-│   │   ├── chunking/           # Text splitting strategies
-│   │   ├── cleaners/           # Text cleaning
-│   │   └── parsers/            # File format parsers
-│   ├── llm/                     # LLM integrations
-│   │   ├── gemini.py           # Google Gemini
-│   │   ├── groq.py             # Groq
-│   │   └── provider.py         # LLM provider management
-│   ├── orchestrator/            # RAG orchestration
-│   ├── reranker/                # Result re-ranking
-│   ├── retrieval/               # Retrieval strategies
-│   │   ├── dense.py            # Vector search
-│   │   ├── sparse.py           # Keyword search
-│   │   ├── hybrid.py           # Hybrid search
-│   │   └── fusion.py           # Score fusion
-│   ├── storage/                 # File storage management
-│   ├── vectorstore/             # Qdrant integration
-│   ├── utils/                   # Utilities
-│   └── main.py                  # Application entry point
+├── app/                          # FastAPI Backend
+│   ├── api/                      # API router & route modules
+│   │   ├── routes/
+│   │   │   ├── analytics.py      # Usage & performance analytics
+│   │   │   ├── auth.py           # Registration & JWT authentication
+│   │   │   ├── chat.py           # RAG chat & query orchestration
+│   │   │   ├── health.py         # System status & diagnostic health check
+│   │   │   ├── knowledge.py      # Knowledge Base CRUD & upload management
+│   │   │   └── upload.py         # Document upload ingestion endpoint
+│   │   ├── dependencies.py      # Dependency injection & tenant contexts
+│   │   └── router.py            # Central APIRouter definition
+│   ├── config/                   # App settings & environment parameters
+│   ├── db/                       # SQLAlchemy models & repository layer
+│   │   ├── models.py            # Database tables (KnowledgeBase, Upload, QueryLog, etc.)
+│   │   └── repositories/        # Data access repositories
+│   ├── embeddings/              # Embedding generation models
+│   ├── ingestion/               # Parsers, cleaners, and chunkers
+│   ├── llm/                     # Provider integrations (Gemini, Groq, OpenAI)
+│   ├── orchestrator/            # Core RAG retrieval & prompt building engine
+│   ├── reranker/                # Cross-encoder reranking
+│   ├── retrieval/               # Dense, sparse, hybrid search & RRF score fusion
+│   ├── storage/                 # File storage & uploads manager
+│   ├── vectorstore/             # Qdrant client wrappers
+│   └── main.py                  # FastAPI application entry point & CORS
 │
-├── enterprise-rag-frontend/     # Frontend application
+├── enterprise-rag-frontend/     # React 18 + TypeScript Frontend
 │   ├── src/
-│   │   ├── api/                # API client
-│   │   ├── components/         # React components
-│   │   │   ├── ui/            # Base UI components
-│   │   │   ├── blog/          # Blog components
-│   │   │   ├── chat/          # Chat components
-│   │   │   ├── dashboard/     # Dashboard components
-│   │   │   └── common/        # Common components
-│   │   ├── pages/              # Page components
-│   │   │   ├── Home.tsx       # Landing page
-│   │   │   ├── Chat.tsx       # Chat interface
-│   │   │   ├── Blog.tsx       # Blog listing
-│   │   │   ├── Documents.tsx  # Document management
-│   │   │   ├── Dashboard.tsx  # Analytics
-│   │   │   └── Settings.tsx   # Configuration
-│   │   ├── hooks/              # Custom React hooks
-│   │   ├── store/              # State management (Zustand)
-│   │   ├── styles/             # Global styles
-│   │   ├── types/              # TypeScript types
-│   │   ├── utils/              # Utility functions
-│   │   └── data/              # Static data (blog posts)
-│   ├── public/                 # Static assets
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tailwind.config.js
-│   └── vite.config.ts
+│   │   ├── api/                # Axios API service hooks
+│   │   ├── components/         # Reusable UI, chat, and upload components
+│   │   ├── layouts/            # Dashboard layout & navigation sidebar
+│   │   ├── pages/              # App pages (Home, Chat, Dashboard, Upload, Analytics, Settings)
+│   │   ├── routes/             # React Router configuration
+│   │   ├── store/              # Zustand state stores
+│   │   └── styles/             # Tailwind CSS & global styling
+│   └── vite.config.ts           # Vite build configuration
 │
 ├── alembic/                     # Database migrations
-├── tests/                       # Backend tests
-├── data/                        # Uploaded documents
-├── logs/                        # Application logs
-├── docker-compose.yml           # Docker orchestration
-├── Dockerfile                   # Backend Docker image
-├── requirements.txt             # Python dependencies
-├── pyproject.toml              # Project metadata
-├── .env.example                # Environment template
-├── .gitignore                  # Git ignore rules
-└── README.md                   # This file
+├── scripts/                     # Data migration & utility scripts
+├── tests/                       # E2E & unit test suites
+├── docker-compose.yml           # Multi-container docker stack
+└── README.md                    # Project documentation
 ```
 
-## ⚙️ Configuration
-
-### Backend Configuration
-
-Key configuration files:
-
-- **`app/config/settings.py`**: Application settings (database, Redis, Qdrant, etc.)
-- **`.env`**: Environment-specific variables (API keys, secrets)
-- **`alembic.ini`**: Database migration configuration
-- **`docker-compose.yml`**: Docker service definitions
-
-### Frontend Configuration
-
-Key configuration files:
-
-- **`enterprise-rag-frontend/.env.local`**: Frontend environment variables
-- **`enterprise-rag-frontend/vite.config.ts`**: Vite build configuration
-- **`enterprise-rag-frontend/tailwind.config.js`**: Tailwind CSS configuration
-- **`enterprise-rag-frontend/tsconfig.json`**: TypeScript configuration
+---
 
 ## 📚 API Documentation
 
-Once the backend is running, access interactive API documentation:
+Once the backend is running, browse interactive docs at `http://localhost:8000/docs`.
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+### Core API Endpoints Overview
 
-### Key Endpoints
+| Scope | Method | Endpoint | Description |
+|---|---|---|---|
+| **Health** | `GET` | `/api/v1/health` | System status check |
+| **Auth** | `POST` | `/api/v1/auth/register` | Register new user |
+| **Auth** | `POST` | `/api/v1/auth/login` | Login and receive JWT |
+| **Auth** | `GET` | `/api/v1/auth/me` | Fetch active profile |
+| **Knowledge** | `POST` | `/api/v1/knowledge` | Create Knowledge Base |
+| **Knowledge** | `GET` | `/api/v1/knowledge` | List Knowledge Bases |
+| **Knowledge** | `GET` | `/api/v1/knowledge/{kb_id}` | Get KB details & upload list |
+| **Knowledge** | `DELETE` | `/api/v1/knowledge/{kb_id}` | Delete KB and cascade vectors |
+| **Knowledge** | `POST` | `/api/v1/knowledge/{kb_id}/upload` | Upload file to Knowledge Base |
+| **Knowledge** | `GET` | `/api/v1/knowledge/{kb_id}/history` | Get KB upload history |
+| **Knowledge** | `GET` | `/api/v1/knowledge/{kb_id}/statistics` | Get KB indexing statistics |
+| **Knowledge** | `POST` | `/api/v1/knowledge/{kb_id}/reindex` | Trigger Celery KB re-indexing |
+| **Chat** | `POST` | `/api/v1/chat/` | RAG query with optional KB filtering |
+| **Analytics** | `GET` | `/api/v1/analytics/dashboard` | Workspace summary dashboard |
+| **Analytics** | `GET` | `/api/v1/analytics/queries` | Query latency & retrieval metrics |
+| **Analytics** | `GET` | `/api/v1/analytics/usage` | Time-series usage breakdown |
+| **Analytics** | `GET` | `/api/v1/analytics/performance` | Percentile latency stats ($p_{50}, p_{95}, p_{99}$) |
 
-**Authentication**
-- `POST /api/auth/google` - Google OAuth login
-- `POST /api/auth/logout` - Logout user
-
-**Documents**
-- `POST /api/documents/upload` - Upload document
-- `GET /api/documents/` - List documents
-- `DELETE /api/documents/{id}` - Delete document
-- `POST /api/documents/{id}/reindex` - Re-index document
-
-**Chat**
-- `POST /api/chat/` - Query the RAG system
-- `GET /api/chat/history` - Get chat history
-
-**Search**
-- `POST /api/search/` - Search documents
-- `POST /api/search/hybrid` - Hybrid search (vector + keyword)
-
-**Health**
-- `GET /api/health` - Check system health
-
-## 🛠️ Development
-
-### Backend Development
-
-```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest
-
-# Run tests with coverage
-pytest --cov=app tests/
-
-# Format code
-black app/
-isort app/
-
-# Lint code
-flake8 app/
-mypy app/
-
-# Type checking
-mypy app/
-```
-
-### Frontend Development
-
-```bash
-cd enterprise-rag-frontend
-
-# Start dev server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Type check
-npm run type-check
-
-# Lint
-npm run lint
-```
-
-### Database Migrations
-
-```bash
-# Create a new migration
-alembic revision --autogenerate -m "Description of changes"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback one migration
-alembic downgrade -1
-
-# View migration history
-alembic history
-```
-
-## 🚢 Deployment
-
-### Backend Deployment
-
-**Option 1: Docker**
-```bash
-docker build -t enterprise-rag-backend .
-docker run -p 8000:8000 --env-file .env enterprise-rag-backend
-```
-
-**Option 2: Traditional Hosting**
-```bash
-# Using gunicorn
-gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-
-# Or using uvicorn directly
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
-### Frontend Deployment
-
-**Vercel** (Recommended)
-1. Connect your GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy with a single click
-
-**Netlify**
-```bash
-npm run build
-netlify deploy --prod --dir=dist
-```
-
-**Static Hosting (Any Provider)**
-```bash
-npm run build
-# Upload contents of dist/ folder
-```
+---
 
 ## 🧪 Testing
 
-### Backend Tests
+Run test suites using `pytest`:
 
 ```bash
 # Run all tests
 pytest
 
-# Run specific test file
-pytest tests/test_chunking.py
-
-# Run with verbose output
-pytest -v
-
-# Run with coverage report
-pytest --cov=app --cov-report=html tests/
+# Run End-to-End Enterprise RAG tests
+pytest tests/test_enterprise_rag_e2e.py -v
 ```
 
-### Frontend Tests
-
-```bash
-cd enterprise-rag-frontend
-
-# Run tests (if configured)
-npm test
-
-# Run tests in watch mode
-npm test -- --watch
-```
-
-## 📊 Performance
-
-- **Query Response Time**: < 200ms (p99)
-- **Vector Search**: < 100ms for 1M documents
-- **Document Processing**: ~1MB per 2-3 seconds
-- **Retrieval Accuracy**: 90%+ with hybrid search
-- **Concurrent Users**: 100+ (with proper scaling)
-
-## 🔒 Security
-
-- ✅ Google OAuth 2.0 authentication
-- ✅ JWT-based session management
-- ✅ Role-based access control
-- ✅ Input validation and sanitization
-- ✅ Rate limiting
-- ✅ CORS configuration
-- ✅ HTTPS enforcement (production)
-- ✅ Environment variable protection
-- ✅ SQL injection prevention
-- ✅ XSS protection
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+---
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
-- [React](https://reactjs.org/) - Frontend library
-- [Qdrant](https://qdrant.tech/) - Vector database
-- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS
-- [Framer Motion](https://www.framer.com/motion/) - Animation library
-- [Napkin.ai](https://www.napkin.ai/) - Design inspiration
-
-## 📧 Support
-
-For support, email support@enterpriserag.com or open an issue on GitHub.
-
-## 🗺️ Roadmap
-
-- [ ] Add support for more LLM providers (Anthropic Claude, Cohere)
-- [ ] Implement advanced RAG techniques (HyDE, Self-RAG)
-- [ ] Add multi-language support
-- [ ] Enhance analytics and monitoring
-- [ ] Mobile app (React Native)
-- [ ] Advanced permission system
-- [ ] Integration with popular tools (Slack, Teams)
-- [ ] GraphQL API
-- [ ] Real-time collaboration features
-
----
-
-**Built with ❤️ for enterprise teams**
-
-⭐ **Star this repo if you find it helpful!**
-
-🐛 **Report bugs**: [GitHub Issues](https://github.com/majhisamrat/Enterprise-RAG/issues)
-
-💬 **Discussions**: [GitHub Discussions](https://github.com/majhisamrat/Enterprise-RAG/discussions)

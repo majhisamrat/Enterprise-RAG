@@ -70,8 +70,10 @@ class ElasticsearchIndexer:
         department: Optional[str] = "General",
         tags: Optional[List[str]] = None,
         language: str = "en",
+        upload_id: Optional[uuid.UUID] = None,  # NEW
+        knowledge_base_id: Optional[uuid.UUID] = None,  # NEW
     ):
-        """Bulk index document chunks with circuit breaker."""
+        """Bulk index document chunks with circuit breaker and KB metadata."""
         if not ElasticConnection.is_available():
             logger.debug("Elasticsearch circuit breaker OPEN — skipping indexing (0ms)")
             return 0
@@ -88,6 +90,9 @@ class ElasticsearchIndexer:
                     "document_id": str(document_id),
                     "chunk_id": chunk_uuid,
                     "organization_id": str(organization_id),
+                    # KB metadata (NEW)
+                    "upload_id": str(upload_id) if upload_id else str(document_id),
+                    "knowledge_base_id": str(knowledge_base_id) if knowledge_base_id else None,
                     "page_number": getattr(chunk, "page", 1),
                     "chunk_index": idx,
                     "title": title or "Untitled Document",
@@ -113,6 +118,43 @@ class ElasticsearchIndexer:
         except Exception as e:
             ElasticConnection.mark_offline()
             raise
+
+    async def delete_documents_by_upload(self, upload_id: uuid.UUID) -> int:
+        """
+        Delete all documents for a specific upload from Elasticsearch.
+        
+        Used during per-KB reindexing to remove old documents before re-indexing.
+        """
+        if not ElasticConnection.is_available():
+            logger.debug("Elasticsearch circuit breaker OPEN — skipping delete (0ms)")
+            return 0
+
+        try:
+            client = self.client
+            if client is None:
+                logger.debug("Elasticsearch client unavailable — skipping delete")
+                return 0
+
+            # Delete all documents with matching upload_id
+            result = client.delete_by_query(
+                index=self.index_name,
+                body={
+                    "query": {
+                        "term": {
+                            "upload_id": str(upload_id)
+                        }
+                    }
+                }
+            )
+
+            deleted_count = result.get("deleted", 0)
+            logger.info(f"Deleted {deleted_count} documents for upload {upload_id} from Elasticsearch")
+            return deleted_count
+
+        except Exception as e:
+            logger.warning(f"Error deleting documents for upload {upload_id}: {e}")
+            ElasticConnection.mark_offline()
+            return 0
 
 
 # Backward compatibility alias

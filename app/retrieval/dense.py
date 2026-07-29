@@ -19,13 +19,17 @@ class DenseRetriever(BaseRetriever):
         query: str,
         limit: int = 10,
         organization_id: Optional[uuid.UUID] = None,
+        knowledge_base_id: Optional[uuid.UUID] = None,
+        upload_id: Optional[uuid.UUID] = None,
         department: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        logger.info("Running dense vector retrieval.")
+        logger.info(f"Running dense vector retrieval with KB filtering (KB: {knowledge_base_id})")
         query_vector = self.embedder.embed_query(query)
         return self.vector_store.search(
             query_embedding=query_vector,
             limit=limit,
             organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+            upload_id=upload_id,
             department=department,
         )

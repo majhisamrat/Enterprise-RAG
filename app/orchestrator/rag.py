@@ -29,6 +29,7 @@ class RAGOrchestrator(BaseOrchestrator):
         self,
         query: str,
         organization_id: Optional[uuid.UUID] = None,
+        knowledge_base_id: Optional[uuid.UUID] = None,  # NEW: KB filter
         department: Optional[str] = None,
         session_id: Optional[uuid.UUID] = None,
         top_k: int = 10,
@@ -36,7 +37,10 @@ class RAGOrchestrator(BaseOrchestrator):
         **kwargs: Any,
     ) -> Dict[str, Any]:
         start = time.perf_counter()
-        logger.info(f"Starting RAG chat workflow for query: '{query}' (Org: {organization_id})")
+        logger.info(
+            f"Starting RAG chat workflow for query: '{query}' "
+            f"(Org: {organization_id}, KB: {knowledge_base_id})"
+        )
 
         # 1. Fetch conversation history if session_id provided
         conversation_history = []
@@ -50,41 +54,59 @@ class RAGOrchestrator(BaseOrchestrator):
                         "content": msg.content,
                     })
 
-        # 2. Perform Hybrid Retrieval (Dense + Sparse + RRF + Cross-Encoder Rerank)
+        # 2. Perform Hybrid Retrieval with KB filtering (NEW)
         retrieved_docs = self.retriever.retrieve(
             query=query,
             limit=top_k,
             organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,  # NEW: pass KB filter
             department=department,
         )
 
-        logger.info(f"Hybrid retrieval and reranking produced {len(retrieved_docs)} final context documents.")
+        logger.info(
+            f"Hybrid retrieval and reranking produced {len(retrieved_docs)} final context documents "
+            f"(KB filtered: {knowledge_base_id is not None})."
+        )
 
-        # 3. Construct Prompt
+        # 3. Update KB last queried time if KB filter was used
+        if knowledge_base_id and db_session:
+            from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
+            kb_repo = KnowledgeBaseRepository(db_session)
+            await kb_repo.update_last_queried(knowledge_base_id)
+
+        # 4. Construct Prompt
         prompt = self.prompt_builder.build(
             query=query,
             documents=retrieved_docs,
             conversation_history=conversation_history,
         )
 
-        # 4. Generate LLM Answer via Gemini 2.5 Flash
+        # 5. Generate LLM Answer via Gemini 2.5 Flash
         llm_resp = self.llm.generate(prompt)
 
         latency_ms = (time.perf_counter() - start) * 1000.0
 
-        # Format sources & citations
+        # Format sources & citations with upload info (NEW)
         citations = []
+        used_upload_ids = set()
         for idx, doc in enumerate(retrieved_docs, start=1):
+            upload_id = doc.get("upload_id")
+            if upload_id:
+                used_upload_ids.add(upload_id)
+            
             citations.append({
                 "citation_key": f"[Source {idx}]",
                 "document_id": doc.get("document_id"),
+                "upload_id": upload_id,  # NEW: track upload
+                "document_name": doc.get("document_name"),  # NEW: show source file
+                "upload_date": doc.get("upload_date"),  # NEW: show when uploaded
                 "title": doc.get("title") or doc.get("document", "Document"),
                 "page_number": doc.get("page_number") or doc.get("page", 1),
                 "text_snippet": doc.get("text", "")[:200] + "...",
                 "relevance_score": doc.get("rerank_score") or doc.get("rrf_score") or doc.get("score", 0.0),
             })
 
-        # 5. Persist Chat Messages in Database if session available
+        # 6. Persist Chat Messages in Database if session available
         if session_id and db_session:
             chat_repo = ChatRepository(db_session)
 
@@ -122,11 +144,26 @@ class RAGOrchestrator(BaseOrchestrator):
                     except (ValueError, TypeError):
                         pass
 
+            # Log query for analytics (NEW)
+            from app.db.models import QueryLog
+            query_log = QueryLog(
+                user_id=session_obj.user_id if session_obj else None,
+                organization_id=organization_id,
+                knowledge_base_id=knowledge_base_id,
+                query_text=query,
+                retrieved_count=len(retrieved_docs),
+                latency_ms=latency_ms,
+                used_upload_ids=list(used_upload_ids),
+            )
+            db_session.add(query_log)
+            await db_session.commit()
+
         logger.success(f"RAG chat workflow completed in {latency_ms:.2f}ms")
 
         return {
             "answer": llm_resp.answer,
             "session_id": str(session_id) if session_id else None,
+            "knowledge_base_id": str(knowledge_base_id) if knowledge_base_id else None,  # NEW
             "sources": citations,
             "metadata": {
                 "model": llm_resp.model_name,
@@ -135,5 +172,7 @@ class RAGOrchestrator(BaseOrchestrator):
                 "total_tokens": llm_resp.total_tokens,
                 "latency_ms": round(latency_ms, 2),
                 "context_documents": len(retrieved_docs),
+                "kb_filtered": knowledge_base_id is not None,  # NEW: show if filtered
+                "used_uploads": list(used_upload_ids),  # NEW: show which uploads
             },
         }

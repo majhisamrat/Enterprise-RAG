@@ -62,6 +62,8 @@ class IngestionService:
         department: Optional[str] = None,
         author: Optional[str] = None,
         tags: Optional[list] = None,
+        upload_id: Optional[uuid.UUID] = None,  # NEW: for KB-uploaded documents
+        knowledge_base_id: Optional[uuid.UUID] = None,  # NEW: for KB context
     ) -> Dict[str, Any]:
         """Process document through full RAG ingestion pipeline and persist to all stores."""
         path = Path(file_path)
@@ -71,7 +73,10 @@ class IngestionService:
         organization_id = organization_id or uuid.uuid4()
         owner_id = owner_id or uuid.uuid4()
 
-        logger.info(f"Starting document ingestion for file: {path.name} (Org: {organization_id})")
+        logger.info(
+            f"Starting document ingestion for file: {path.name} "
+            f"(Org: {organization_id}, KB: {knowledge_base_id})"
+        )
 
         try:
             # 1. Parse, OCR, Clean & Extract Metadata
@@ -83,10 +88,10 @@ class IngestionService:
             # 3. Generate Dense Embeddings
             embedded_doc = self.embedder.embed(chunked_doc)
 
-            doc_id = uuid.uuid4()
+            doc_id = upload_id or uuid.uuid4()
             doc_title = title or path.stem
 
-            # 4. Index in Qdrant (Dense Search) with resilient offline fallback
+            # 4. Index in Qdrant (Dense Search) with KB metadata
             try:
                 await self.vector_store.upsert_document_chunks(
                     document=embedded_doc,
@@ -95,11 +100,13 @@ class IngestionService:
                     department=department,
                     author=author,
                     tags=tags,
+                    upload_id=upload_id,  # NEW: tag vectors with upload
+                    knowledge_base_id=knowledge_base_id,  # NEW: tag with KB
                 )
             except Exception as e:
                 logger.warning(f"Qdrant vector store indexing skipped (server offline?): {e}")
 
-            # 5. Index in Elasticsearch (Sparse BM25 Search) with resilient offline fallback
+            # 5. Index in Elasticsearch (Sparse BM25 Search) with KB metadata
             try:
                 await self.elastic_index.index_document_chunks(
                     document=embedded_doc,
@@ -109,6 +116,8 @@ class IngestionService:
                     department=department,
                     author=author,
                     tags=tags,
+                    upload_id=upload_id,  # NEW
+                    knowledge_base_id=knowledge_base_id,  # NEW
                 )
             except Exception as e:
                 logger.warning(f"Elasticsearch BM25 indexing skipped (server offline?): {e}")
@@ -131,7 +140,10 @@ class IngestionService:
                 )
                 await doc_repo.create(doc_record)
 
-            logger.success(f"Successfully ingested document '{doc_title}' ({len(embedded_doc.chunks)} chunks)")
+            logger.success(
+                f"Successfully ingested document '{doc_title}' "
+                f"({len(embedded_doc.chunks)} chunks)"
+            )
 
             return {
                 "document_id": str(doc_id),

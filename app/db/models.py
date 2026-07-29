@@ -40,6 +40,8 @@ class Organization(Base, UUIDMixin, TimestampMixin):
     users: Mapped[List["User"]] = relationship("User", back_populates="organization", cascade="all, delete-orphan")
     documents: Mapped[List["Document"]] = relationship("Document", back_populates="organization", cascade="all, delete-orphan")
     chat_sessions: Mapped[List["ChatSession"]] = relationship("ChatSession", back_populates="organization", cascade="all, delete-orphan")
+    knowledge_bases: Mapped[List["KnowledgeBase"]] = relationship("KnowledgeBase", back_populates="organization", cascade="all, delete-orphan")
+    query_logs: Mapped[List["QueryLog"]] = relationship("QueryLog", back_populates="organization", cascade="all, delete-orphan")
 
 
 class Role(Base, UUIDMixin):
@@ -172,11 +174,13 @@ class ChatSession(Base, UUIDMixin, TimestampMixin):
 
     organization_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    knowledge_base_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), default="New Conversation", nullable=False)
 
     # Relationships
     organization: Mapped[Organization] = relationship("Organization", back_populates="chat_sessions")
     user: Mapped[User] = relationship("User")
+    knowledge_base: Mapped[Optional["KnowledgeBase"]] = relationship("KnowledgeBase", back_populates="chat_sessions")
     messages: Mapped[List["ChatMessage"]] = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
 
 
@@ -270,3 +274,117 @@ class BackgroundJob(Base, UUIDMixin, TimestampMixin):
     payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class KnowledgeBase(Base, UUIDMixin, TimestampMixin):
+    """Knowledge Base for organizing uploads logically."""
+    __tablename__ = "knowledge_bases"
+
+    organization_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)  # e.g., "Sales_2026"
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)  # e.g., "Sales Q1-Q4 2026"
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="active", nullable=False, index=True)  # active, archived, deleted
+    query_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_queried_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    organization: Mapped[Organization] = relationship("Organization", back_populates="knowledge_bases")
+    user: Mapped[User] = relationship("User")
+    uploads: Mapped[List["Upload"]] = relationship("Upload", back_populates="knowledge_base", cascade="all, delete-orphan")
+    chat_sessions: Mapped[List["ChatSession"]] = relationship("ChatSession", back_populates="knowledge_base")
+    query_logs: Mapped[List["QueryLog"]] = relationship("QueryLog", back_populates="knowledge_base", cascade="all, delete-orphan")
+
+
+class Upload(Base, UUIDMixin, TimestampMixin):
+    """Track individual document uploads with metadata."""
+    __tablename__ = "uploads"
+
+    knowledge_base_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    file_type: Mapped[str] = mapped_column(String(20), nullable=False)  # pdf, docx, txt
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_path: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # nullable - may be deleted after ingestion
+    page_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    chunk_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    embedding_model: Mapped[str] = mapped_column(String(255), default="BAAI/bge-small-en-v1.5", nullable=False)
+    embedding_dimension: Mapped[int] = mapped_column(Integer, default=384, nullable=False)
+    total_vectors: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    processing_status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False, index=True)  # pending, processing, completed, failed
+    processing_start_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    processing_end_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    processing_duration_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    vector_collection_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Qdrant collection name
+    qdrant_index_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    elasticsearch_index_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    # Relationships
+    knowledge_base: Mapped[KnowledgeBase] = relationship("KnowledgeBase", back_populates="uploads")
+    organization: Mapped[Organization] = relationship("Organization")
+    user: Mapped[User] = relationship("User")
+    embedding_collection: Mapped[Optional["EmbeddingCollection"]] = relationship("EmbeddingCollection", back_populates="upload", uselist=False, cascade="all, delete-orphan")
+    query_logs: Mapped[List["QueryLog"]] = relationship("QueryLog", back_populates="upload")
+
+
+class EmbeddingCollection(Base, UUIDMixin):
+    """Track Qdrant/Elasticsearch collection per upload."""
+    __tablename__ = "embedding_collections"
+
+    upload_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("uploads.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    knowledge_base_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=False, index=True)
+    collection_name: Mapped[str] = mapped_column(String(255), nullable=False)  # Qdrant collection name
+    index_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Elasticsearch index
+    vector_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    upload: Mapped[Upload] = relationship("Upload", back_populates="embedding_collection")
+    knowledge_base: Mapped[KnowledgeBase] = relationship("KnowledgeBase")
+
+
+class QueryLog(Base, UUIDMixin):
+    """Track all queries for analytics."""
+    __tablename__ = "query_logs"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    knowledge_base_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=True, index=True)
+    upload_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), ForeignKey("uploads.id", ondelete="CASCADE"), nullable=True, index=True)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    retrieved_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    latency_ms: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    used_upload_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # Array of upload IDs used
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+
+    # Relationships
+    user: Mapped[User] = relationship("User")
+    organization: Mapped[Organization] = relationship("Organization", back_populates="query_logs")
+    knowledge_base: Mapped[Optional[KnowledgeBase]] = relationship("KnowledgeBase", back_populates="query_logs")
+    upload: Mapped[Optional[Upload]] = relationship("Upload", back_populates="query_logs")
+
+
+class VectorMetadata(Base, UUIDMixin):
+    """Denormalized metadata cache for fast dashboard queries."""
+    __tablename__ = "vector_metadata"
+
+    knowledge_base_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=False, index=True)
+    upload_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("uploads.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    page_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    chunk_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_vectors: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    embedding_model: Mapped[str] = mapped_column(String(255), nullable=False)
+    query_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_queried_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    knowledge_base: Mapped[KnowledgeBase] = relationship("KnowledgeBase")
+    upload: Mapped[Upload] = relationship("Upload")
+    organization: Mapped[Organization] = relationship("Organization")
