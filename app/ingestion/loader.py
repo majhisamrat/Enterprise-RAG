@@ -10,11 +10,14 @@ SUPPORTED_EXTENSIONS = {
     ".docx",
     ".pptx",
     ".xlsx",
+    ".xls",
+    ".csv",
     ".html",
     ".htm",
     ".md",
     ".txt",
 }
+
 
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

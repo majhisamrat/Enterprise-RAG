@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
@@ -7,61 +8,202 @@ import {
   BarChart3,
   LogOut,
   Brain,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/knowledge', icon: Database, label: 'Knowledge Bases' },
-  { to: '/chat', icon: MessageSquare, label: 'Chat' },
+  { to: '/chat', icon: MessageSquare, label: 'Chat Assistant' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ collapsed, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+
+  const isCollapsed = collapsed ?? internalCollapsed;
+  const toggleCollapse = onToggle ?? (() => setInternalCollapsed(!internalCollapsed));
+
+  const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card">
-      <div className="flex h-full flex-col">
-        <div className="flex items-center gap-2 px-6 py-5">
-          <Brain className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg">Enterprise RAG</span>
+    <aside
+      className={cn(
+        'fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-out glass-sidebar bg-card/90 backdrop-blur-2xl flex flex-col justify-between border-r border-border shadow-xl',
+        isCollapsed ? 'w-[76px]' : 'w-72',
+      )}
+    >
+      {/* Top Section */}
+      <div className="flex flex-col">
+        {/* Brand Header */}
+        <div className="flex items-center justify-between px-5 py-5 h-20 border-b border-border">
+          <div className="flex items-center gap-3.5 overflow-hidden">
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-md shadow-primary/25 glow-sm">
+              <Brain className="h-6 w-6 text-white" />
+              <Sparkles className="absolute -top-1 -right-1 h-3.5 w-3.5 text-sky-300 animate-pulse" />
+            </div>
+            {!isCollapsed && (
+              <div className="flex flex-col transition-opacity duration-200">
+                <span className="font-extrabold text-lg tracking-tight text-foreground">
+                  Enterprise RAG
+                </span>
+                <span className="text-[11px] font-bold tracking-widest text-primary uppercase">
+                  AI Platform
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Collapse Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleCollapse}
+            className="hidden md:flex h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted"
+          >
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
         </div>
 
-        <Separator />
+        {/* Navigation Menu */}
+        <nav className="space-y-2 p-3.5">
+          {navItems.map((item) => {
+            const isActive =
+              location.pathname === item.to ||
+              (item.to !== '/' && location.pathname.startsWith(item.to));
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                location.pathname === item.to ||
-                  (item.to !== '/' && location.pathname.startsWith(item.to))
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </NavLink>
-          ))}
+            const navLinkContent = (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={cn(
+                  'relative flex items-center gap-3.5 rounded-xl px-4 py-3 text-base font-semibold transition-all duration-200 group',
+                  isActive
+                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 font-bold'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  isCollapsed && 'justify-center px-0',
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    'h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110',
+                    isActive ? 'text-primary-foreground' : 'text-muted-foreground group-hover:text-foreground',
+                  )}
+                />
+                {!isCollapsed && <span>{item.label}</span>}
+              </NavLink>
+            );
+
+            if (isCollapsed) {
+              return (
+                <Tooltip key={item.to} delayDuration={0}>
+                  <TooltipTrigger asChild>{navLinkContent}</TooltipTrigger>
+                  <TooltipContent side="right" className="font-bold text-sm">
+                    {item.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return navLinkContent;
+          })}
         </nav>
+      </div>
 
-        <Separator />
+      {/* Bottom Actions & User Section */}
+      <div className="p-4 border-t border-border space-y-3">
+        {/* Theme Toggle Button */}
+        {isCollapsed ? (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleTheme}
+                className="w-full h-10 rounded-xl"
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-700" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleTheme}
+            className="w-full justify-between rounded-xl h-10 text-sm font-bold px-3.5 border-border bg-card/80 hover:bg-muted shadow-sm"
+          >
+            <span className="flex items-center gap-2.5">
+              {theme === 'dark' ? <Moon className="h-4 w-4 text-indigo-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
+              <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+            </span>
+            <span className="text-xs text-muted-foreground uppercase font-black">{theme}</span>
+          </Button>
+        )}
 
-        <div className="p-4 space-y-2">
-          <div className="text-xs text-muted-foreground px-3 truncate">{user?.email}</div>
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground" onClick={logout}>
+        {/* User Card */}
+        <div
+          className={cn(
+            'flex items-center gap-3 rounded-xl p-2.5 bg-muted/50 border border-border/80 shadow-sm',
+            isCollapsed && 'justify-center p-1.5',
+          )}
+        >
+          <Avatar className="h-9 w-9 shrink-0 shadow-sm">
+            <AvatarFallback className="bg-gradient-to-br from-primary/30 to-purple-600/30 text-primary text-sm font-bold">
+              {userInitial}
+            </AvatarFallback>
+          </Avatar>
+
+          {!isCollapsed && (
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm font-bold text-foreground truncate">{user?.email}</span>
+              <span className="text-xs text-muted-foreground font-medium">Authenticated</span>
+            </div>
+          )}
+        </div>
+
+        {/* Sign Out Button */}
+        {isCollapsed ? (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                className="w-full h-10 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Sign Out</TooltipContent>
+          </Tooltip>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            className="w-full justify-start gap-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors h-10"
+          >
             <LogOut className="h-4 w-4" />
             Sign Out
           </Button>
-        </div>
+        )}
       </div>
     </aside>
   );

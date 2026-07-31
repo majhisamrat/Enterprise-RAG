@@ -23,9 +23,12 @@ class KeywordSearchEngine:
         query: str,
         limit: int = 10,
         organization_id: Optional[uuid.UUID] = None,
+        knowledge_base_id: Optional[uuid.UUID] = None,
+        upload_id: Optional[uuid.UUID] = None,
         department: Optional[str] = None,
+        **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        """Perform BM25 keyword search with organization and department filters."""
+        """Perform BM25 keyword search with organization, KB, upload, and department filters."""
         if not ElasticConnection.is_available():
             logger.debug("Elasticsearch circuit breaker OPEN — skipping search (0ms)")
             return []
@@ -37,6 +40,12 @@ class KeywordSearchEngine:
 
         if organization_id:
             filter_clauses.append({"term": {"organization_id": str(organization_id)}})
+
+        if knowledge_base_id:
+            filter_clauses.append({"term": {"knowledge_base_id": str(knowledge_base_id)}})
+
+        if upload_id:
+            filter_clauses.append({"term": {"upload_id": str(upload_id)}})
 
         if department:
             filter_clauses.append({"term": {"department": department}})

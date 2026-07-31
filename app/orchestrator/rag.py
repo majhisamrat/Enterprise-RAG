@@ -54,12 +54,37 @@ class RAGOrchestrator(BaseOrchestrator):
                         "content": msg.content,
                     })
 
-        # 2. Perform Hybrid Retrieval with KB filtering (NEW)
+        kb_name: Optional[str] = None
+        allowed_file_names: Optional[set] = None
+
+        if knowledge_base_id and db_session:
+            from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
+            from app.db.repositories.upload_repository import UploadRepository
+            from pathlib import Path
+
+            kb_repo = KnowledgeBaseRepository(db_session)
+            upload_repo = UploadRepository(db_session)
+
+            kb_obj = await kb_repo.get_by_id(knowledge_base_id)
+            if kb_obj:
+                kb_name = kb_obj.display_name
+                await kb_repo.update_last_queried(knowledge_base_id)
+
+            kb_uploads = await upload_repo.get_by_kb(knowledge_base_id, skip=0, limit=1000)
+            allowed_file_names = set()
+            for u in kb_uploads:
+                if u.original_filename:
+                    allowed_file_names.add(u.original_filename.lower())
+                if u.storage_path:
+                    allowed_file_names.add(Path(u.storage_path).name.lower())
+
+        # 2. Perform Hybrid Retrieval with KB filtering
         retrieved_docs = self.retriever.retrieve(
             query=query,
             limit=top_k,
             organization_id=organization_id,
-            knowledge_base_id=knowledge_base_id,  # NEW: pass KB filter
+            knowledge_base_id=knowledge_base_id,
+            allowed_file_names=allowed_file_names if knowledge_base_id else None,
             department=department,
         )
 
@@ -68,21 +93,17 @@ class RAGOrchestrator(BaseOrchestrator):
             f"(KB filtered: {knowledge_base_id is not None})."
         )
 
-        # 3. Update KB last queried time if KB filter was used
-        if knowledge_base_id and db_session:
-            from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
-            kb_repo = KnowledgeBaseRepository(db_session)
-            await kb_repo.update_last_queried(knowledge_base_id)
-
         # 4. Construct Prompt
         prompt = self.prompt_builder.build(
             query=query,
             documents=retrieved_docs,
             conversation_history=conversation_history,
+            selected_kb_name=kb_name if knowledge_base_id else None,
         )
 
         # 5. Generate LLM Answer via Gemini 2.5 Flash
         llm_resp = self.llm.generate(prompt)
+
 
         latency_ms = (time.perf_counter() - start) * 1000.0
 

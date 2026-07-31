@@ -29,7 +29,8 @@ router = APIRouter(prefix="/knowledge", tags=["Knowledge Bases"])
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@router.post("/", response_model=Dict[str, Any])
+@router.post("", response_model=Dict[str, Any])
+@router.post("/", response_model=Dict[str, Any], include_in_schema=False)
 async def create_knowledge_base(
     name: str = Form(...),
     display_name: str = Form(...),
@@ -87,7 +88,8 @@ async def create_knowledge_base(
         )
 
 
-@router.get("/", response_model=List[Dict[str, Any]])
+@router.get("", response_model=List[Dict[str, Any]])
+@router.get("/", response_model=List[Dict[str, Any]], include_in_schema=False)
 async def list_knowledge_bases(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
@@ -280,7 +282,7 @@ async def upload_document_to_kb(
             user_id=current_user.id,
             original_filename=file.filename,
             display_name=display_name or file.filename,
-            file_type=uploaded_file["file_type"],
+            file_type=uploaded_file.get("file_type") or Path(file.filename or "").suffix.lstrip(".").lower() or "txt",
             file_size_bytes=uploaded_file["size"],
             storage_path=uploaded_file["path"],
             processing_status="pending",
@@ -293,42 +295,47 @@ async def upload_document_to_kb(
         await db.commit()
 
         if background_processing:
-            # Dispatch async Celery task
-            job = process_document_ingestion_task.delay(
-                upload_id=str(upload.id),
-                file_path=uploaded_file["path"],
-                kb_id=str(kb_uuid),
-                organization_id=str(tenant_context.organization_id),
-                user_id=str(current_user.id),
-            )
+            try:
+                # Dispatch async Celery task
+                job = process_document_ingestion_task.delay(
+                    upload_id=str(upload.id),
+                    file_path=uploaded_file["path"],
+                    kb_id=str(kb_uuid),
+                    organization_id=str(tenant_context.organization_id),
+                    user_id=str(current_user.id),
+                )
 
-            # Record background job
-            bg_job = BackgroundJob(
-                organization_id=tenant_context.organization_id,
-                job_type="document_ingestion",
-                status="PENDING",
-                payload={
+                # Record background job
+                bg_job = BackgroundJob(
+                    organization_id=tenant_context.organization_id,
+                    job_type="document_ingestion",
+                    status="PENDING",
+                    payload={
+                        "upload_id": str(upload.id),
+                        "celery_job_id": job.id,
+                        "filename": file.filename,
+                    },
+                )
+                db.add(bg_job)
+                await db.commit()
+
+                app_logger.info(f"Queued async ingestion for upload: {upload.id}")
+
+                return {
+                    "success": True,
                     "upload_id": str(upload.id),
-                    "celery_job_id": job.id,
-                    "filename": file.filename,
-                },
-            )
-            db.add(bg_job)
-            await db.commit()
+                    "kb_id": str(kb_uuid),
+                    "filename": uploaded_file["original_name"],
+                    "status": "PENDING",
+                    "background_processing": True,
+                    "job_id": job.id,
+                }
+            except Exception as cel_err:
+                app_logger.warning(f"Celery dispatch failed ({cel_err}). Falling back to sync ingestion...")
+                background_processing = False
 
-            app_logger.info(f"Queued async ingestion for upload: {upload.id}")
-
-            return {
-                "success": True,
-                "upload_id": str(upload.id),
-                "kb_id": str(kb_uuid),
-                "filename": uploaded_file["original_name"],
-                "status": "PENDING",
-                "background_processing": True,
-                "job_id": job.id,
-            }
-        else:
-            # Sync processing (not recommended for large files)
+        if not background_processing:
+            # Sync processing fallback
             from app.services.ingestion_service import IngestionService
 
             ingestion_service = IngestionService(db_session=db)
@@ -337,13 +344,15 @@ async def upload_document_to_kb(
                 organization_id=tenant_context.organization_id,
                 owner_id=current_user.id,
                 title=display_name or file.filename,
+                upload_id=upload.id,
+                knowledge_base_id=kb_uuid,
             )
 
             # Update upload record
             upload = await upload_repo.update_status(str(upload.id), "completed")
             await upload_repo.update_vector_counts(
                 upload.id,
-                result.get("pages", 0),
+                result.get("chunks", 0),
                 result.get("chunks", 0),
                 result.get("chunks", 0),
             )
@@ -362,6 +371,7 @@ async def upload_document_to_kb(
                 "chunks": result.get("chunks"),
                 "vectors": result.get("chunks"),
             }
+
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

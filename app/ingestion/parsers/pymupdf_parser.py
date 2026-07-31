@@ -31,8 +31,14 @@ class DocumentParser:
         elif self.extension == ".pptx":
             return self._parse_pptx()
 
-        elif self.extension == ".xlsx":
+        elif self.extension in [".xlsx", ".xls"]:
             return self._parse_xlsx()
+
+        elif self.extension == ".csv":
+            return self._parse_csv()
+
+        elif self.extension in [".txt", ".md", ".html", ".htm"]:
+            return self._parse_txt()
 
         raise UnsupportedFileType(
             f"{self.extension} is not supported."
@@ -41,15 +47,11 @@ class DocumentParser:
     def _parse_pdf(self) -> ParsedDocument:
 
         try:
-
             parsed_pages = []
 
             with fitz.open(self.file_path) as doc:
-
                 for page_number, page in enumerate(doc, start=1):
-
                     text = page.get_text().strip()
-
                     parsed_pages.append(
                         ParsedPage(
                             document=self.file_path.name,
@@ -85,9 +87,7 @@ class DocumentParser:
             return document
 
         except Exception as e:
-
             logger.exception(e)
-
             raise RuntimeError(
                 f"Failed to parse PDF: {e}"
             )
@@ -95,9 +95,7 @@ class DocumentParser:
     def _parse_docx(self) -> ParsedDocument:
 
         try:
-
             document = Document(self.file_path)
-
             text = "\n".join(
                 paragraph.text.strip()
                 for paragraph in document.paragraphs
@@ -124,9 +122,7 @@ class DocumentParser:
             )
 
         except Exception as e:
-
             logger.exception(e)
-
             raise RuntimeError(
                 f"Failed to parse DOCX: {e}"
             )
@@ -134,22 +130,16 @@ class DocumentParser:
     def _parse_pptx(self) -> ParsedDocument:
 
         try:
-
             presentation = Presentation(self.file_path)
-
             slides = []
 
             for index, slide in enumerate(
                 presentation.slides,
                 start=1,
             ):
-
                 texts = []
-
                 for shape in slide.shapes:
-
                     if hasattr(shape, "text") and shape.text.strip():
-
                         texts.append(shape.text.strip())
 
                 slide_text = "\n".join(texts)
@@ -177,9 +167,7 @@ class DocumentParser:
             )
 
         except Exception as e:
-
             logger.exception(e)
-
             raise RuntimeError(
                 f"Failed to parse PPTX: {e}"
             )
@@ -187,7 +175,6 @@ class DocumentParser:
     def _parse_xlsx(self) -> ParsedDocument:
 
         try:
-
             workbook = pd.read_excel(
                 self.file_path,
                 sheet_name=None,
@@ -196,13 +183,12 @@ class DocumentParser:
             sheets = []
 
             for sheet_name, dataframe in workbook.items():
-
                 sheet_text = dataframe.to_string(index=False)
 
                 sheets.append(
                     ParsedPage(
                         document=self.file_path.name,
-                        page=sheet_name,
+                        page=str(sheet_name),
                         text=sheet_text,
                         needs_ocr=False,
                     )
@@ -222,9 +208,68 @@ class DocumentParser:
             )
 
         except Exception as e:
-
             logger.exception(e)
-
             raise RuntimeError(
-                f"Failed to parse XLSX: {e}"
+                f"Failed to parse Excel spreadsheet: {e}"
+            )
+
+    def _parse_csv(self) -> ParsedDocument:
+
+        try:
+            dataframe = pd.read_csv(self.file_path)
+            text = dataframe.to_string(index=False)
+
+            pages = [
+                ParsedPage(
+                    document=self.file_path.name,
+                    page=1,
+                    text=text,
+                    needs_ocr=False,
+                )
+            ]
+
+            return ParsedDocument(
+                document=self.file_path.name,
+                file_type="csv",
+                page_count=1,
+                total_characters=len(text),
+                needs_ocr=False,
+                ocr_used=False,
+                pages=pages,
+            )
+
+        except Exception as e:
+            logger.exception(e)
+            raise RuntimeError(
+                f"Failed to parse CSV document: {e}"
+            )
+
+    def _parse_txt(self) -> ParsedDocument:
+
+        try:
+            text = self.file_path.read_text(encoding="utf-8", errors="ignore")
+
+            pages = [
+                ParsedPage(
+                    document=self.file_path.name,
+                    page=1,
+                    text=text,
+                    needs_ocr=False,
+                )
+            ]
+
+            return ParsedDocument(
+                document=self.file_path.name,
+                file_type=self.extension.lstrip("."),
+                page_count=1,
+                total_characters=len(text),
+                needs_ocr=False,
+                ocr_used=False,
+                pages=pages,
+            )
+
+        except Exception as e:
+            logger.exception(e)
+            raise RuntimeError(
+                f"Failed to parse text document: {e}"
             )

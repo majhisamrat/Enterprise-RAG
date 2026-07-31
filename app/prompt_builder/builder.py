@@ -14,6 +14,7 @@ class PromptBuilder(BasePromptBuilder):
         query: str,
         documents: List[Dict[str, Any]],
         conversation_history: Optional[List[Dict[str, str]]] = None,
+        selected_kb_name: Optional[str] = None,
     ) -> str:
         """Construct prompt with system rules, formatted context sources, chat history, and user query."""
         context_blocks = []
@@ -30,7 +31,19 @@ class PromptBuilder(BasePromptBuilder):
             )
             context_blocks.append(block)
 
-        context_str = "\n---\n".join(context_blocks) if context_blocks else "No relevant context found."
+        if context_blocks:
+            context_str = "\n---\n".join(context_blocks)
+        elif selected_kb_name:
+            context_str = (
+                f"CRITICAL BOUNDARY NOTICE: The user explicitly selected the Knowledge Base '{selected_kb_name}'. "
+                f"No relevant documents or information matching the user query '{query}' were found inside this selected Knowledge Base ('{selected_kb_name}'). "
+                f"You MUST strictly inform the user: 'I couldn't find any information regarding this query in the selected Knowledge Base ({selected_kb_name}). "
+                f"Please select \"All Knowledge Bases\" or switch to the corresponding Knowledge Base.' "
+                f"DO NOT answer using outside knowledge bases or guess."
+            )
+        else:
+            context_str = "No relevant context documents found in the knowledge base."
+
 
         history_str = ""
         if conversation_history:

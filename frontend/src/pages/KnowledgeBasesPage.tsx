@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Database } from 'lucide-react';
+import { Plus, Database, Calendar, MessageSquare, Loader2 } from 'lucide-react';
+import { StaggerContainer, StaggerItem } from '@/components/shared/motion';
 
 export default function KnowledgeBasesPage() {
   const { data: kbs, isLoading, error, refetch } = useKnowledgeBases();
@@ -34,10 +35,10 @@ export default function KnowledgeBasesPage() {
 
   if (isLoading) {
     return (
-      <div>
+      <div className="space-y-6">
         <PageHeader title="Knowledge Bases" description="Organize documents into domain-specific collections" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} className="h-48" />)}
         </div>
       </div>
     );
@@ -46,41 +47,62 @@ export default function KnowledgeBasesPage() {
   if (error) return <ErrorState title="Failed to load knowledge bases" onRetry={() => refetch()} />;
 
   return (
-    <div>
+    <div className="space-y-8">
       <PageHeader title="Knowledge Bases" description="Organize documents into domain-specific collections">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-1" />
-              New KB
+            <Button size="lg" className="gap-2.5 shadow-lg shadow-primary/25 text-base font-semibold px-6 h-12">
+              <Plus className="h-5 w-5" />
+              New Knowledge Base
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-xl p-8">
             <DialogHeader>
-              <DialogTitle>Create Knowledge Base</DialogTitle>
-              <DialogDescription>
-                A knowledge base groups related documents for focused search and chat.
+              <DialogTitle className="flex items-center gap-2.5 text-xl font-bold">
+                <Database className="h-6 w-6 text-primary" />
+                Create Knowledge Base
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                A knowledge base groups related documents for focused semantic search and AI chat.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
+            <div className="space-y-5 py-3">
               <div className="space-y-2">
-                <Label htmlFor="kb-name">Name (identifier)</Label>
-                <Input id="kb-name" placeholder="e.g. sales_2026" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-                <p className="text-xs text-muted-foreground">Used in API requests, no spaces</p>
+                <Label htmlFor="kb-name" className="text-sm font-bold">Identifier Name</Label>
+                <Input
+                  id="kb-name"
+                  placeholder="e.g. sales_2026"
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
+                  className="h-12 text-base"
+                />
+                <p className="text-xs text-muted-foreground font-medium">Unique identifier used in API requests (no spaces)</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="kb-display">Display Name</Label>
-                <Input id="kb-display" placeholder="e.g. Sales 2026 Documents" value={form.display_name} onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))} />
+                <Label htmlFor="kb-display" className="text-sm font-bold">Display Title</Label>
+                <Input
+                  id="kb-display"
+                  placeholder="e.g. Sales 2026 Reports"
+                  value={form.display_name}
+                  onChange={(e) => setForm((p) => ({ ...p, display_name: e.target.value }))}
+                  className="h-12 text-base"
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="kb-desc">Description (optional)</Label>
-                <Input id="kb-desc" placeholder="Description of this knowledge base" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+                <Label htmlFor="kb-desc" className="text-sm font-bold">Description (Optional)</Label>
+                <Input
+                  id="kb-desc"
+                  placeholder="Internal documentation and client invoices..."
+                  value={form.description}
+                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                  className="h-12 text-base"
+                />
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={createKb.isPending || !form.name || !form.display_name}>
-                {createKb.isPending ? 'Creating...' : 'Create'}
+            <DialogFooter className="gap-3 pt-4">
+              <Button variant="outline" size="lg" onClick={() => setOpen(false)} className="text-base font-semibold px-6">Cancel</Button>
+              <Button size="lg" onClick={handleCreate} disabled={createKb.isPending || !form.name || !form.display_name} className="gap-2 text-base font-semibold px-6">
+                {createKb.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create Knowledge Base'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -89,40 +111,60 @@ export default function KnowledgeBasesPage() {
 
       {(!kbs || kbs.length === 0) ? (
         <EmptyState
-          title="No knowledge bases yet"
-          description="Create your first knowledge base to start organizing documents."
+          icon={Database}
+          title="No knowledge bases created yet"
+          description="Create your first knowledge base to organize PDF documents, text files, and spreadsheets."
           action={{ label: 'Create Knowledge Base', onClick: () => setOpen(true) }}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <StaggerContainer className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {kbs.map((kb) => (
-            <Card
-              key={kb.id}
-              className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => navigate(`/knowledge/${kb.id}`)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Database className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-base">{kb.display_name}</CardTitle>
+            <StaggerItem key={kb.id}>
+              <Card
+                className="group cursor-pointer hover:border-primary/50 hover:shadow-xl transition-all duration-300 relative overflow-hidden h-full flex flex-col justify-between p-6 glass-card border border-border"
+                onClick={() => navigate(`/knowledge/${kb.id}`)}
+              >
+                <CardHeader className="p-0 pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary">
+                        <Database className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-extrabold group-hover:text-primary transition-colors text-foreground">
+                          {kb.display_name}
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground font-mono font-semibold">{kb.name}</p>
+                      </div>
+                    </div>
+                    <Badge variant={kb.status === 'active' ? 'success' : 'secondary'} className="text-xs px-3 py-1 font-bold">
+                      {kb.status}
+                    </Badge>
                   </div>
-                  <Badge variant={kb.status === 'active' ? 'success' : 'secondary'}>{kb.status}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground font-mono">{kb.name}</p>
-              </CardHeader>
-              <CardContent>
-                {kb.description && (
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{kb.description}</p>
-                )}
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div><span className="text-muted-foreground">Queries </span><span className="font-medium">{kb.query_count}</span></div>
-                  <div><span className="text-muted-foreground">Created </span><span className="font-medium">{new Date(kb.created_at).toLocaleDateString()}</span></div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardHeader>
+
+                <CardContent className="p-0 space-y-4">
+                  {kb.description ? (
+                    <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{kb.description}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground/60 italic">No description provided</p>
+                  )}
+
+                  <div className="flex items-center justify-between pt-4 border-t border-border text-sm font-semibold text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      <strong className="text-foreground">{kb.query_count}</strong> queries
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      {new Date(kb.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       )}
     </div>
   );

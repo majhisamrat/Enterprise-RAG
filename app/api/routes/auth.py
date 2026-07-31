@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
@@ -13,6 +15,22 @@ from app.storage.redis_client import redis_manager
 from app.utils.email_service import OTPService
 from app.utils.google_auth import verify_google_id_token
 from app.utils.security import create_access_token, create_refresh_token, hash_password, verify_password
+
+PUBLIC_DOMAINS = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "protonmail.com", "mail.com", "gmx.com", "zoho.com"}
+
+
+async def _resolve_org_domain(email: str, db: AsyncSession) -> Optional[str]:
+    if "@" not in email:
+        return None
+    raw_domain = email.split("@")[-1].lower()
+    if raw_domain in PUBLIC_DOMAINS:
+        return None
+    stmt = select(Organization).where(Organization.domain == raw_domain)
+    res = await db.execute(stmt)
+    if res.scalar_one_or_none():
+        return f"{raw_domain}-{uuid.uuid4().hex[:6]}"
+    return raw_domain
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -106,10 +124,10 @@ async def google_auth(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)
     user = await user_repo.get_by_email(g_user["email"])
 
     if not user:
-        # Auto-create Organization for new Google user
+        org_domain = await _resolve_org_domain(g_user["email"], db)
         org = Organization(
             name=req.organization_name or f"{g_user['name']}'s Org",
-            domain=g_user["email"].split("@")[-1],
+            domain=org_domain,
         )
         db.add(org)
         await db.flush()
@@ -161,24 +179,33 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    org = Organization(
-        name=req.organization_name,
-        domain=req.email.split("@")[-1],
-    )
-    db.add(org)
-    await db.flush()
+    org_domain = await _resolve_org_domain(req.email, db)
 
-    new_user = User(
-        organization_id=org.id,
-        name=req.name,
-        email=req.email,
-        password_hash=hash_password(req.password),
-        department=req.department,
-        auth_provider="local",
-        email_verified=False,
-        status="active",
-    )
-    await user_repo.create(new_user)
+    try:
+        org = Organization(
+            name=req.organization_name,
+            domain=org_domain,
+        )
+        db.add(org)
+        await db.flush()
+
+        new_user = User(
+            organization_id=org.id,
+            name=req.name,
+            email=req.email,
+            password_hash=hash_password(req.password),
+            department=req.department,
+            auth_provider="local",
+            email_verified=False,
+            status="active",
+        )
+        await user_repo.create(new_user)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Registration failed due to constraint conflict. Email or domain might already be in use.",
+        )
 
     access_token = create_access_token({"sub": str(new_user.id), "org": str(org.id)})
     refresh_token = create_refresh_token({"sub": str(new_user.id)})

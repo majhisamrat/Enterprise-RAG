@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
+import LandingPage from '@/pages/LandingPage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
@@ -11,6 +12,10 @@ import AnalyticsPage from '@/pages/AnalyticsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
+  {
+    path: '/landing',
+    element: <LandingPage />,
+  },
   {
     path: '/login',
     element: <LoginPage />,
@@ -28,6 +33,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
+      { path: 'dashboard', element: <DashboardPage /> },
       { path: 'knowledge', element: <KnowledgeBasesPage /> },
       { path: 'knowledge/:id', element: <KnowledgeDetailPage /> },
       { path: 'chat', element: <ChatPage /> },
@@ -43,3 +49,5 @@ export const router = createBrowserRouter([
     element: <Navigate to="/404" replace />,
   },
 ]);
+
+

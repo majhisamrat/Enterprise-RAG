@@ -24,4 +24,5 @@ def save_upload_file(file: UploadFile) -> Dict[str, Any]:
         "path": file_path,
         "size": getattr(file, "size", 0) or 0,
         "content_type": file.content_type or "application/octet-stream",
+        "file_type": extension.lstrip(".") or "txt",
     }

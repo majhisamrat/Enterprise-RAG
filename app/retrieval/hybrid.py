@@ -12,7 +12,7 @@ from app.config import settings
 
 
 class HybridRetriever:
-    """Hybrid Retriever combining Dense Vector Search, Sparse BM25 Search, RRF, and Cross-Encoder Reranking with Fast Single-Document Fallback."""
+    """Hybrid Retriever combining Dense Vector Search, Sparse BM25 Search, RRF, and Cross-Encoder Reranking with Strict KB Isolation."""
 
     def __init__(self) -> None:
         self.dense = DenseRetriever()
@@ -26,22 +26,18 @@ class HybridRetriever:
         limit: int = 10,
         organization_id: Optional[uuid.UUID] = None,
         knowledge_base_id: Optional[uuid.UUID] = None,
+        allowed_file_names: Optional[set] = None,
         upload_id: Optional[uuid.UUID] = None,
         department: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Perform hybrid retrieval with optional KB/upload filtering.
-        
-        - **knowledge_base_id**: Filter to single KB only (optional)
-        - **upload_id**: Filter to single upload only (optional)
+        Perform hybrid retrieval with strict KB/upload filtering.
         """
         logger.info(
             f"Running hybrid retrieval for query: '{query}' "
-            f"(Org: {organization_id}, KB: {knowledge_base_id}, Upload: {upload_id})"
+            f"(Org: {organization_id}, KB: {knowledge_base_id}, Allowed Files: {allowed_file_names})"
         )
 
-        # Keep the candidate set bounded.  Cross-encoder inference on CPU grows
-        # linearly with this number and was the dominant source of query latency.
         limit = min(limit, settings.MAX_RETRIEVAL_RESULTS)
         candidate_limit = min(max(limit * 2, limit), settings.RERANKER_MAX_CANDIDATES)
 
@@ -77,11 +73,23 @@ class HybridRetriever:
 
         # Local file search fallback if Qdrant / ES vector stores return 0 candidates
         if not fused_results:
-            logger.info("Vector & BM25 stores offline/empty — running local document file search fallback...")
-            fused_results = self._local_file_search_fallback(query)
+            logger.info("Vector & BM25 stores offline/empty — running strict local document file search fallback...")
+            fused_results = self._local_file_search_fallback(
+                query=query,
+                allowed_file_names=allowed_file_names,
+            )
 
-        # RRF is already a strong ranker.  The heavyweight cross-encoder is
-        # optional for deployments with sufficient CPU/GPU capacity.
+        # Post-filter: If KB filter is set, strictly remove any doc not matching allowed file names
+        if allowed_file_names is not None and allowed_file_names:
+            allowed_lowers = {f.lower() for f in allowed_file_names}
+            strict_fused = []
+            for doc in fused_results:
+                doc_title = str(doc.get("title") or doc.get("document_id") or "").lower()
+                if doc_title in allowed_lowers or any(af in doc_title for af in allowed_lowers):
+                    strict_fused.append(doc)
+            fused_results = strict_fused
+            logger.info(f"Strict KB filtered candidates: {len(fused_results)}")
+
         if self.reranker is not None:
             return self.reranker.rerank(
                 query,
@@ -90,34 +98,56 @@ class HybridRetriever:
             )
         return fused_results[:limit]
 
-    def _local_file_search_fallback(self, query: str) -> List[Dict[str, Any]]:
-        """Fallback to parse ONLY the most recently uploaded PDF document when vector DB is offline."""
+    def _local_file_search_fallback(
+        self,
+        query: str,
+        allowed_file_names: Optional[set] = None,
+    ) -> List[Dict[str, Any]]:
+        """Fallback to search across uploaded documents with strict KB file scoping."""
         results: List[Dict[str, Any]] = []
         upload_dirs = [Path("data/uploads"), Path("data/uploads/raw_documents")]
         seen_files = set()
+        allowed_extensions = {".pdf", ".docx", ".pptx", ".xlsx", ".xls", ".csv", ".txt", ".md", ".html", ".htm"}
 
         all_files = []
         for u_dir in upload_dirs:
             if not u_dir.exists():
                 continue
             for fpath in u_dir.rglob("*"):
-                if fpath.is_file() and fpath.suffix.lower() in [".pdf", ".docx", ".txt", ".md"]:
+                if fpath.is_file() and fpath.suffix.lower() in allowed_extensions:
                     if fpath.name not in seen_files:
                         seen_files.add(fpath.name)
                         all_files.append((fpath.stat().st_mtime, fpath))
 
-        # Sort files by creation/modification time so ONLY the latest uploaded file is parsed
+        # Filter by allowed KB file names if KB filter is active
+        if allowed_file_names is not None:
+            if not allowed_file_names:
+                logger.info("Knowledge Base filter active but 0 files registered — returning 0 documents.")
+                return []
+            allowed_lowers = {f.lower() for f in allowed_file_names}
+            all_files = [
+                f for f in all_files
+                if f[1].name.lower() in allowed_lowers
+                or f[1].stem.lower() in allowed_lowers
+                or any(af in f[1].name.lower() for af in allowed_lowers)
+            ]
+
+        # Sort files by modification time (most recent first)
         all_files.sort(key=lambda x: x[0], reverse=True)
         if not all_files:
             return []
 
-        query_terms = [t.lower() for t in query.split() if len(t) > 2]
+        # Extract meaningful query terms
+        stop_words = {"is", "the", "me", "give", "this", "of", "in", "to", "for", "and", "a", "an", "what", "how", "many"}
+        query_terms = [
+            t.lower() for t in query.replace(",", " ").replace("?", " ").split()
+            if len(t) >= 1 and t.lower() not in stop_words
+        ]
 
         from app.ingestion.parsers.pymupdf_parser import DocumentParser
         parser = DocumentParser()
 
-        # Parse ONLY the single latest uploaded document for sub-second performance
-        for mtime, fpath in all_files[:1]:
+        for mtime, fpath in all_files[:15]:
             try:
                 parsed_doc = parser.parse(fpath)
                 for page in parsed_doc.pages:
@@ -126,27 +156,36 @@ class HybridRetriever:
                     lines = [l.strip() for l in page.text.split("\n") if l.strip()]
                     full_page_text = "\n".join(lines)
 
-                    for idx in range(0, len(full_page_text), 400):
-                        chunk_text = full_page_text[idx:idx + 600]
-                        if len(chunk_text) < 20:
-                            continue
+                    chunks = []
+                    if fpath.suffix.lower() in [".csv", ".xlsx", ".xls"]:
+                        header = lines[0] if lines else ""
+                        for row_idx, row in enumerate(lines[1:], start=1):
+                            row_text = f"{header}\n{row}" if header else row
+                            chunks.append((row_idx * 50, row_text))
+                    
+                    if not chunks:
+                        for idx in range(0, len(full_page_text), 400):
+                            chunk_text = full_page_text[idx:idx + 600]
+                            if len(chunk_text) >= 10:
+                                chunks.append((idx, chunk_text))
 
-                        matches = sum(1 for term in query_terms if term in chunk_text.lower())
-                        score = 0.5 + (matches * 0.2)
-
-                        results.append({
-                            "chunk_id": f"{fpath.stem}_p{page.page}_c{idx}",
-                            "document_id": str(fpath.name),
-                            "title": fpath.name,
-                            "page_number": page.page,
-                            "chunk_index": idx,
-                            "text": chunk_text,
-                            "score": score,
-                            "rrf_score": score,
-                        })
+                    for idx, chunk_text in chunks:
+                        chunk_lower = chunk_text.lower()
+                        matches = sum(1 for term in query_terms if term in chunk_lower)
+                        if matches > 0:
+                            score = 0.5 + (matches * 0.25)
+                            results.append({
+                                "chunk_id": f"{fpath.stem}_p{page.page}_c{idx}",
+                                "document_id": str(fpath.name),
+                                "title": fpath.name,
+                                "page_number": page.page,
+                                "chunk_index": idx,
+                                "text": chunk_text,
+                                "score": score,
+                                "rrf_score": score,
+                            })
             except Exception as e:
                 logger.warning(f"Local fallback error reading {fpath.name}: {e}")
 
         results.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
-        # Limit to top 5 chunks max so CPU CrossEncoder reranking finishes in < 1.5 seconds
-        return results[:5]
+        return results[:8]

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQueryAnalytics, useUsageAnalytics, usePerformanceMetrics } from '@/hooks/useAnalytics';
+import { useUsageAnalytics, usePerformanceMetrics } from '@/hooks/useAnalytics';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { CardSkeleton } from '@/components/shared/LoadingState';
 import { ErrorState } from '@/components/shared/ErrorState';
@@ -7,27 +7,78 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
-  BarChart3, Clock, Zap, Activity, TrendingUp, Search,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  BarChart3, Clock, Zap, Activity, TrendingUp, Search, Calendar as CalendarIcon, Check, Filter,
 } from 'lucide-react';
 import { formatMs } from '@/lib/utils';
-
-type Period = 7 | 30 | 90;
+import { FadeIn, StaggerContainer, StaggerItem } from '@/components/shared/motion';
 
 export default function AnalyticsPage() {
-  const [period, setPeriod] = useState<Period>(7);
+  // Period states
+  const [period, setPeriod] = useState<number>(7);
+  const [selectedOption, setSelectedOption] = useState<string>('7');
+  const [isCalendarOpen, setIsCalendarOpen] = useState<boolean>(false);
+
+  // Custom date picker states
+  const todayStr = new Date().toISOString().split('T')[0];
+  const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState<string>(sevenDaysAgoStr);
+  const [endDate, setEndDate] = useState<string>(todayStr);
+  const [customRangeLabel, setCustomRangeLabel] = useState<string | null>(null);
+
   const { data: perf, isLoading: perfLoading, error: perfError, refetch: refetchPerf } = usePerformanceMetrics({ days: period });
   const { data: usage, isLoading: usageLoading, error: usageError, refetch: refetchUsage } = useUsageAnalytics({ days: period });
 
   const isLoading = perfLoading || usageLoading;
   const error = perfError || usageError;
 
+  // Handle standard period select change
+  const handleSelectChange = (value: string) => {
+    if (value === 'custom') {
+      setIsCalendarOpen(true);
+    } else {
+      setSelectedOption(value);
+      setPeriod(Number(value));
+      setCustomRangeLabel(null);
+    }
+  };
+
+  // Quick preset handler inside custom date modal
+  const applyPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+  };
+
+  // Apply custom dates from modal
+  const handleApplyCustomDates = () => {
+    if (!startDate || !endDate) return;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Calculate difference in days
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+    setPeriod(diffDays);
+    setSelectedOption('custom');
+    setCustomRangeLabel(`${startDate} to ${endDate} (${diffDays}d)`);
+    setIsCalendarOpen(false);
+  };
+
   if (isLoading) {
     return (
-      <div>
+      <div className="space-y-6">
         <PageHeader title="Analytics" description="System performance and usage metrics" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} className="h-40" />)}
         </div>
       </div>
     );
@@ -40,148 +91,332 @@ export default function AnalyticsPage() {
   const usageSummary = usage?.summary;
 
   return (
-    <div>
-      <PageHeader title="Analytics" description="System performance and usage metrics">
-        <Select value={String(period)} onValueChange={(v) => setPeriod(Number(v) as Period)}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="space-y-10">
+      {/* Header with Interactive Calendar & Custom Date Range */}
+      <PageHeader title="Analytics" description="System performance, latency distributions, and query usage analytics">
+        <div className="flex items-center gap-2.5">
+          {/* Clickable Calendar Icon Button */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsCalendarOpen(true)}
+            title="Open Custom Date Picker"
+            className="h-11 w-11 rounded-xl border-border bg-card hover:bg-muted hover:text-primary transition-all shadow-sm group"
+          >
+            <CalendarIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+          </Button>
+
+          {/* Range Selector */}
+          <Select value={selectedOption} onValueChange={handleSelectChange}>
+            <SelectTrigger className="w-[190px] h-11 text-xs font-bold rounded-xl bg-card border-border shadow-sm">
+              <SelectValue placeholder="Select Timeframe" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="14">Last 14 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="custom" className="font-bold text-primary">
+                📅 Custom Date Range...
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Active Custom Filter Badge */}
+          {customRangeLabel && (
+            <Badge variant="secondary" className="h-11 px-3.5 gap-1.5 font-mono text-xs font-bold bg-primary/10 text-primary border-primary/20 rounded-xl">
+              <Filter className="h-3.5 w-3.5" />
+              {customRangeLabel}
+            </Badge>
+          )}
+        </div>
       </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Queries</CardTitle>
-            <Search className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{queryMetrics?.total_queries ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Latency</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatMs(queryMetrics?.avg_latency_ms ?? 0)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Uploads</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{uploadMetrics?.total_uploads ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pages Indexed</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{usageSummary?.total_pages_indexed ?? 0}</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* ─── CUSTOM DATE RANGE DIALOG MODAL ─── */}
+      <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+        <DialogContent className="max-w-xl sm:max-w-xl p-8 rounded-3xl border border-border bg-card/95 backdrop-blur-2xl shadow-2xl space-y-6">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="flex items-center gap-3 text-xl font-black text-foreground">
+              <CalendarIcon className="h-6 w-6 text-primary" />
+              Custom Analytics Date Range
+            </DialogTitle>
+            <DialogDescription className="text-sm font-medium text-muted-foreground">
+              Filter workspace performance, latencies, and usage metrics between specific dates.
+            </DialogDescription>
+          </DialogHeader>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              Query Performance
+          {/* Quick Presets */}
+          <div className="space-y-2.5">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Quick Timeframe Presets
+            </Label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: '7 Days', days: 7 },
+                { label: '14 Days', days: 14 },
+                { label: '30 Days', days: 30 },
+                { label: '60 Days', days: 60 },
+                { label: '90 Days', days: 90 },
+                { label: '180 Days', days: 180 },
+              ].map((p) => (
+                <button
+                  key={p.days}
+                  type="button"
+                  onClick={() => applyPreset(p.days)}
+                  className="py-2.5 px-4 text-xs font-extrabold rounded-2xl border border-border bg-muted/40 hover:bg-primary/10 hover:border-primary/40 text-muted-foreground hover:text-primary transition-all shadow-sm"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Custom Date Inputs */}
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label htmlFor="start-date" className="text-xs font-extrabold text-foreground">
+                From Date
+              </Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-12 text-sm font-semibold rounded-2xl bg-background border-border px-4"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end-date" className="text-xs font-extrabold text-foreground">
+                To Date
+              </Label>
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-12 text-sm font-semibold rounded-2xl bg-background border-border px-4"
+              />
+            </div>
+          </div>
+
+          {/* Summary Box */}
+          <div className="p-4 rounded-2xl bg-muted/50 border border-border/80 text-sm font-semibold text-muted-foreground flex items-center justify-between">
+            <span>Selected Duration:</span>
+            <span className="font-mono font-bold text-primary text-sm">
+              {startDate && endDate ? `${startDate} to ${endDate}` : 'Select dates'}
+            </span>
+          </div>
+
+          {/* Dialog Action Buttons */}
+          <DialogFooter className="gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsCalendarOpen(false)}
+              className="rounded-2xl h-11 text-xs font-extrabold border-border px-6"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApplyCustomDates}
+              className="gap-2 rounded-2xl h-11 text-xs font-black shadow-lg shadow-primary/25 px-7"
+            >
+              <Check className="h-4 w-4" />
+              Apply Date Filter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+      {/* Top Cards Row */}
+      <StaggerContainer className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <StaggerItem>
+          <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Total Queries
+              </CardTitle>
+              <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                <Search className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="text-4xl font-black tracking-tight text-foreground">
+                {queryMetrics?.total_queries?.toLocaleString() ?? 0}
+              </div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+
+        <StaggerItem>
+          <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Avg Latency
+              </CardTitle>
+              <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                <Clock className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="text-4xl font-black tracking-tight text-foreground">
+                {formatMs(queryMetrics?.avg_latency_ms ?? 0)}
+              </div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+
+        <StaggerItem>
+          <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Total Uploads
+              </CardTitle>
+              <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                <Activity className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="text-4xl font-black tracking-tight text-foreground">
+                {uploadMetrics?.total_uploads?.toLocaleString() ?? 0}
+              </div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+
+        <StaggerItem>
+          <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Pages Indexed
+              </CardTitle>
+              <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="text-4xl font-black tracking-tight text-foreground">
+                {usageSummary?.total_pages_indexed?.toLocaleString() ?? 0}
+              </div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+      </StaggerContainer>
+
+      {/* Breakdown Section */}
+      <FadeIn delay={0.2} className="grid gap-8 md:grid-cols-2">
+        {/* Query Performance Card */}
+        <Card className="p-8 glass-card border border-border shadow-lg">
+          <CardHeader className="p-0 pb-6">
+            <CardTitle className="text-lg font-extrabold flex items-center gap-2.5 text-foreground">
+              <Zap className="h-5 w-5 text-primary" />
+              Query Performance & Percentiles
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-0 space-y-6">
             <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">p50</p>
-                <p className="text-lg font-bold">{formatMs(queryMetrics?.p50_latency_ms ?? 0)}</p>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">p50 Latency</p>
+                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(queryMetrics?.p50_latency_ms ?? 0)}</p>
               </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">p95</p>
-                <p className="text-lg font-bold">{formatMs(queryMetrics?.p95_latency_ms ?? 0)}</p>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">p95 Latency</p>
+                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(queryMetrics?.p95_latency_ms ?? 0)}</p>
               </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">p99</p>
-                <p className="text-lg font-bold">{formatMs(queryMetrics?.p99_latency_ms ?? 0)}</p>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">p99 Latency</p>
+                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(queryMetrics?.p99_latency_ms ?? 0)}</p>
               </div>
             </div>
+
             <Separator />
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Avg retrieved chunks</span>
-              <span className="font-medium">{queryMetrics?.avg_retrieved_chunks.toFixed(1)}</span>
+
+            <div className="flex items-center justify-between text-base font-medium">
+              <span className="text-muted-foreground">Avg retrieved vector chunks</span>
+              <span className="font-extrabold text-foreground font-mono text-lg">
+                {queryMetrics?.avg_retrieved_chunks != null ? queryMetrics.avg_retrieved_chunks.toFixed(1) : '0.0'}
+              </span>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Upload Performance
+        {/* Upload Performance Card */}
+        <Card className="p-8 glass-card border border-border shadow-lg">
+          <CardHeader className="p-0 pb-6">
+            <CardTitle className="text-lg font-extrabold flex items-center gap-2.5 text-foreground">
+              <BarChart3 className="h-5 w-5 text-emerald-500" />
+              Upload & Vector Processing
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-0 space-y-6">
             <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Avg Time</p>
-                <p className="text-lg font-bold">{formatMs(uploadMetrics?.avg_processing_time_ms ?? 0)}</p>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">Avg Proc Time</p>
+                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(uploadMetrics?.avg_processing_time_ms ?? 0)}</p>
               </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">p50</p>
-                <p className="text-lg font-bold">{formatMs(uploadMetrics?.p50_processing_time_ms ?? 0)}</p>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">p50 Proc Time</p>
+                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(uploadMetrics?.p50_processing_time_ms ?? 0)}</p>
               </div>
-              <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">p95</p>
-                <p className="text-lg font-bold">{formatMs(uploadMetrics?.p95_processing_time_ms ?? 0)}</p>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">p95 Proc Time</p>
+                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(uploadMetrics?.p95_processing_time_ms ?? 0)}</p>
               </div>
             </div>
+
             <Separator />
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Failed uploads</span>
-              <Badge variant={uploadMetrics?.failed_uploads && uploadMetrics.failed_uploads > 0 ? 'destructive' : 'success'}>
+
+            <div className="flex items-center justify-between text-base font-medium">
+              <span className="text-muted-foreground">Failed upload count</span>
+              <Badge variant={uploadMetrics?.failed_uploads && uploadMetrics.failed_uploads > 0 ? 'destructive' : 'success'} className="text-sm px-3 py-1 font-bold">
                 {uploadMetrics?.failed_uploads ?? 0}
               </Badge>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </FadeIn>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-base">Usage Summary ({period}-day period)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground">Chat Messages</p>
-              <p className="text-lg font-semibold">{usageSummary?.total_chat_messages ?? 0}</p>
+      {/* Usage Summary Card */}
+      <FadeIn delay={0.3}>
+        <Card className="p-8 glass-card border border-border shadow-lg">
+          <CardHeader className="p-0 pb-6">
+            <CardTitle className="text-lg font-extrabold flex items-center gap-2.5 text-foreground">
+              <Activity className="h-5 w-5 text-purple-500" />
+              Usage Summary ({customRangeLabel || `${period}-Day Period`})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="p-5 rounded-2xl bg-muted/40 border border-border">
+                <p className="text-xs text-muted-foreground uppercase font-extrabold">Chat Messages</p>
+                <p className="text-3xl font-black text-foreground mt-2">
+                  {usageSummary?.total_chat_messages?.toLocaleString() ?? 0}
+                </p>
+              </div>
+              <div className="p-5 rounded-2xl bg-muted/40 border border-border">
+                <p className="text-xs text-muted-foreground uppercase font-extrabold">Total Vectors</p>
+                <p className="text-3xl font-black text-foreground mt-2">
+                  {usageSummary?.total_vectors?.toLocaleString() ?? 0}
+                </p>
+              </div>
+              <div className="p-5 rounded-2xl bg-muted/40 border border-border">
+                <p className="text-xs text-muted-foreground uppercase font-extrabold">Queries / Day</p>
+                <p className="text-3xl font-black text-foreground mt-2">
+                  {usageSummary?.queries_per_day != null ? usageSummary.queries_per_day.toFixed(1) : '0.0'}
+                </p>
+              </div>
+              <div className="p-5 rounded-2xl bg-muted/40 border border-border">
+                <p className="text-xs text-muted-foreground uppercase font-extrabold">Messages / Day</p>
+                <p className="text-3xl font-black text-foreground mt-2">
+                  {usageSummary?.messages_per_day != null ? usageSummary.messages_per_day.toFixed(1) : '0.0'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Vectors</p>
-              <p className="text-lg font-semibold">{usageSummary?.total_vectors ?? 0}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Queries / Day</p>
-              <p className="text-lg font-semibold">{usageSummary?.queries_per_day.toFixed(1)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Messages / Day</p>
-              <p className="text-lg font-semibold">{usageSummary?.messages_per_day.toFixed(1)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </FadeIn>
     </div>
   );
 }

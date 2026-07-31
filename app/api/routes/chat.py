@@ -37,7 +37,8 @@ class ChatResponse(BaseModel):
     metadata: Dict[str, Any]
 
 
-@router.post("/", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
+@router.post("/", response_model=ChatResponse, include_in_schema=False)
 async def chat(
     request: ChatRequest,
     current_user: User = Depends(get_current_user),
