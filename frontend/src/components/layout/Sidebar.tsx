@@ -27,7 +27,10 @@ const navItems = [
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
 ];
 
-export function Sidebar({ collapsed, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
+export function Sidebar({ collapsed, onToggle }: { 
+  collapsed?: boolean; 
+  onToggle?: () => void;
+}) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();

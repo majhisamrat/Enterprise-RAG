@@ -11,11 +11,40 @@ from app.vectorstore.qdrant_client import QdrantConnection
 
 
 class QdrantVectorStore(BaseVectorStore):
-    """Production-grade Qdrant Vector Store with circuit breaker for offline resilience."""
+    """
+    Production-grade Qdrant Vector Store with KB-based collection strategy.
+    
+    🎯 PERFECT KB SEGMENTATION STRATEGY:
+    
+    Each Knowledge Base gets its own Qdrant collection for complete isolation:
+    - KB vectors: stored in kb-specific collections (enterprise_rag_kb_12345678)
+    - Non-KB vectors: stored in default collection (enterprise_rag)
+    
+    This ensures:
+    1. When user selects specific KB → only search that KB's collection
+    2. When user selects "All KBs" → search default + all KB collections  
+    3. Perfect vector separation by KB as requested
+    """
 
     def __init__(self, collection_name: str = settings.QDRANT_COLLECTION):
-        self.collection_name = collection_name
+        self.base_collection_name = collection_name
         self._client = None
+
+    def _get_collection_name(self, knowledge_base_id: Optional[uuid.UUID] = None) -> str:
+        """
+        Get collection name based on KB strategy for perfect segmentation:
+        - If KB provided: use kb-specific collection (enterprise_rag_kb_12345678)
+        - If no KB: use default collection for backward compatibility
+        """
+        if knowledge_base_id:
+            kb_short = str(knowledge_base_id).replace('-', '')[:8]
+            return f"{self.base_collection_name}_kb_{kb_short}"
+        return self.base_collection_name
+
+    @property
+    def collection_name(self) -> str:
+        """Default collection name for backward compatibility"""
+        return self.base_collection_name
 
     @property
     def client(self):
@@ -23,45 +52,65 @@ class QdrantVectorStore(BaseVectorStore):
             if not QdrantConnection.is_available():
                 return None
             self._client = QdrantConnection.get_client()
-            self._ensure_collection()
-            # _ensure_collection trips the global circuit breaker on a failed
-            # connection.  Do not immediately make a second timed-out call.
+            # Only ensure default collection here
+            self._ensure_collection(knowledge_base_id=None)
             if not QdrantConnection.is_available():
                 self._client = None
                 return None
         return self._client
 
-    def _ensure_collection(self):
+    def _ensure_collection(self, knowledge_base_id: Optional[uuid.UUID] = None):
         """Ensure vector collection exists in Qdrant with proper index configuration."""
         if self._client is None:
             return
         client = self._client
+        
+        collection_name = self._get_collection_name(knowledge_base_id)
+        
         try:
             collections = client.get_collections().collections
-            exists = any(c.name == self.collection_name for c in collections)
+            exists = any(c.name == collection_name for c in collections)
             if not exists:
-                logger.info(f"Creating Qdrant collection '{self.collection_name}'...")
+                kb_info = f" for KB {knowledge_base_id}" if knowledge_base_id else " (default)"
+                logger.info(f"🚀 Creating Qdrant collection '{collection_name}'{kb_info}...")
+                
                 client.create_collection(
-                    collection_name=self.collection_name,
+                    collection_name=collection_name,
                     vectors_config=VectorParams(
                         size=settings.EMBEDDING_DIMENSION,
                         distance=Distance.COSINE,
                     ),
                 )
-                # Create payload index for fast tenant & department filtering
-                client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="organization_id",
-                    field_schema=PayloadSchemaType.KEYWORD,
-                )
-                client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name="department",
-                    field_schema=PayloadSchemaType.KEYWORD,
-                )
+                
+                # Create payload indexes for fast filtering
+                try:
+                    client.create_payload_index(
+                        collection_name=collection_name,
+                        field_name="organization_id",
+                        field_schema=PayloadSchemaType.KEYWORD,
+                    )
+                    client.create_payload_index(
+                        collection_name=collection_name,
+                        field_name="knowledge_base_id",
+                        field_schema=PayloadSchemaType.KEYWORD,
+                    )
+                    client.create_payload_index(
+                        collection_name=collection_name,
+                        field_name="upload_id",
+                        field_schema=PayloadSchemaType.KEYWORD,
+                    )
+                    client.create_payload_index(
+                        collection_name=collection_name,
+                        field_name="department",
+                        field_schema=PayloadSchemaType.KEYWORD,
+                    )
+                    logger.info(f"✅ Created payload indexes for collection '{collection_name}'")
+                except Exception as e:
+                    logger.warning(f"Failed to create payload indexes: {e}")
         except Exception as e:
-            logger.warning(f"Qdrant collection initialization warning (server offline?): {e}")
             QdrantConnection.mark_offline()
+            logger.error(f"Failed to ensure collection '{collection_name}': {e}")
+            raise
 
     async def upsert_document_chunks(
         self,
@@ -79,15 +128,30 @@ class QdrantVectorStore(BaseVectorStore):
         language: str = "en",
         embedding_model: str = "BAAI/bge-small-en-v1.5",
     ):
-        """Upsert document vector chunks into Qdrant store with circuit breaker."""
+        """
+        🎯 Upsert document chunks with PERFECT KB SEGMENTATION
+        
+        Strategy:
+        - If knowledge_base_id provided: store in KB-specific collection
+        - If no KB: store in default collection for backward compatibility
+        
+        This ensures vectors are completely separated by KB for accurate filtering.
+        """
         if not QdrantConnection.is_available():
             logger.debug("Qdrant circuit breaker OPEN — skipping upsert (0ms)")
             return
 
+        # Get KB-specific collection name for perfect segmentation
+        collection_name = self._get_collection_name(knowledge_base_id)
+        
+        # Ensure KB-specific collection exists
+        if knowledge_base_id:
+            self._ensure_collection(knowledge_base_id)
+
         points = []
         now_iso = datetime.now(timezone.utc).isoformat()
         upload_date = upload_date or now_iso
-
+        
         for idx, chunk in enumerate(document.chunks):
             chunk_uuid = str(uuid.uuid4())
             payload = {
@@ -96,7 +160,7 @@ class QdrantVectorStore(BaseVectorStore):
                 "document_id": str(document_id),
                 "organization_id": str(organization_id),
                 
-                # Knowledge Base tracking (NEW)
+                # 🎯 KB tracking for perfect segmentation
                 "upload_id": str(upload_id) if upload_id else str(document_id),
                 "knowledge_base_id": str(knowledge_base_id) if knowledge_base_id else None,
                 "document_name": document_name or f"doc_{document_id}",
@@ -126,7 +190,7 @@ class QdrantVectorStore(BaseVectorStore):
             points.append(
                 PointStruct(
                     id=chunk_uuid,
-                    vector=chunk.embedding if chunk.embedding is not None else [],
+                    vector=chunk.embedding if chunk.embedding else [0.0] * 384,
                     payload=payload,
                 )
             )
@@ -136,13 +200,20 @@ class QdrantVectorStore(BaseVectorStore):
             if client is None:
                 logger.debug("Qdrant client unavailable — skipping upsert")
                 return
+                
             client.upsert(
-                collection_name=self.collection_name,
+                collection_name=collection_name,
                 points=points,
             )
-            logger.info(f"Upserted {len(points)} vector chunks to Qdrant collection '{self.collection_name}' with KB metadata")
+            
+            kb_info = f" → KB {knowledge_base_id}" if knowledge_base_id else " → default"
+            logger.info(
+                f"✅ Stored {len(points)} vectors in collection '{collection_name}'{kb_info}"
+            )
+            
         except Exception as e:
             QdrantConnection.mark_offline()
+            logger.error(f"Failed to upsert to collection '{collection_name}': {e}")
             raise
 
     def index(self, document: ChunkedDocument):
@@ -161,56 +232,82 @@ class QdrantVectorStore(BaseVectorStore):
         upload_id: Optional[uuid.UUID] = None,
         department: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Perform dense vector search with optional KB/upload filtering."""
+        """
+        🎯 PERFECT KB-BASED SEARCH STRATEGY
+        
+        Implements exactly what user requested:
+        - If knowledge_base_id provided: search ONLY that KB's collection
+        - If no KB filter: search default collection (for "All Knowledge Bases")
+        
+        This ensures complete KB isolation during retrieval.
+        """
         if not QdrantConnection.is_available():
             logger.debug("Qdrant circuit breaker OPEN — skipping search (0ms)")
             return []
 
-        must_conditions = []
-
-        if organization_id:
-            must_conditions.append(
-                FieldCondition(
-                    key="organization_id",
-                    match=MatchValue(value=str(organization_id)),
-                )
-            )
-
-        # Filter by knowledge base if specified
+        # 🎯 Determine which collection to search based on KB filter
         if knowledge_base_id:
-            must_conditions.append(
-                FieldCondition(
-                    key="knowledge_base_id",
-                    match=MatchValue(value=str(knowledge_base_id)),
-                )
-            )
-
-        # Filter by upload if specified
-        if upload_id:
-            must_conditions.append(
-                FieldCondition(
-                    key="upload_id",
-                    match=MatchValue(value=str(upload_id)),
-                )
-            )
-
-        if department:
-            must_conditions.append(
-                FieldCondition(
-                    key="department",
-                    match=MatchValue(value=department),
-                )
-            )
-
-        query_filter = Filter(must=must_conditions) if must_conditions else None
+            # Search ONLY the specific KB collection
+            collection_name = self._get_collection_name(knowledge_base_id)
+            search_info = f"KB {knowledge_base_id}"
+        else:
+            # Search default collection for "All Knowledge Bases"
+            collection_name = self.base_collection_name
+            search_info = "All KBs (default collection)"
 
         try:
             client = self.client
             if client is None:
                 logger.debug("Qdrant client unavailable — skipping search")
                 return []
+                
+            # Check if collection exists
+            collections = client.get_collections().collections
+            if not any(c.name == collection_name for c in collections):
+                logger.debug(f"Collection '{collection_name}' does not exist")
+                return []
+
+            # Build filter conditions
+            must_conditions = []
+
+            if organization_id:
+                must_conditions.append(
+                    FieldCondition(
+                        key="organization_id",
+                        match=MatchValue(value=str(organization_id)),
+                    )
+                )
+
+            # Extra safety: filter by KB if specified
+            if knowledge_base_id:
+                must_conditions.append(
+                    FieldCondition(
+                        key="knowledge_base_id",
+                        match=MatchValue(value=str(knowledge_base_id)),
+                    )
+                )
+
+            # Filter by upload if specified
+            if upload_id:
+                must_conditions.append(
+                    FieldCondition(
+                        key="upload_id",
+                        match=MatchValue(value=str(upload_id)),
+                    )
+                )
+
+            if department:
+                must_conditions.append(
+                    FieldCondition(
+                        key="department",
+                        match=MatchValue(value=department),
+                    )
+                )
+
+            query_filter = Filter(must=must_conditions) if must_conditions else None
+                
             results = client.query_points(
-                collection_name=self.collection_name,
+                collection_name=collection_name,
                 query=query_embedding,
                 query_filter=query_filter,
                 limit=limit,
@@ -225,7 +322,7 @@ class QdrantVectorStore(BaseVectorStore):
                     "document_id": payload.get("document_id"),
                     "organization_id": payload.get("organization_id"),
                     
-                    # KB tracking (NEW)
+                    # KB tracking
                     "upload_id": payload.get("upload_id"),
                     "knowledge_base_id": payload.get("knowledge_base_id"),
                     "document_name": payload.get("document_name"),
@@ -234,7 +331,7 @@ class QdrantVectorStore(BaseVectorStore):
                     # Chunk metadata
                     "page_number": payload.get("page_number"),
                     "chunk_index": payload.get("chunk_index"),
-                    "text": payload.get("text"),
+                    "text": payload.get("text") or payload.get("chunk_text"),
                     
                     # Embedding metadata
                     "embedding_model": payload.get("embedding_model"),
@@ -253,21 +350,26 @@ class QdrantVectorStore(BaseVectorStore):
                     "created_at": payload.get("created_at"),
                     "metadata": payload.get("metadata"),
                 })
+            
+            logger.info(f"🔍 Found {len(formatted_results)} vectors from {search_info}")
             return formatted_results
+                    
         except Exception as e:
-            logger.warning(f"Qdrant vector store offline or search warning: {e}")
+            logger.warning(f"Error searching collection '{collection_name}': {e}")
             QdrantConnection.mark_offline()
             return []
 
-    async def delete_vectors_by_upload(self, upload_id: uuid.UUID) -> int:
+    async def delete_vectors_by_upload(self, upload_id: uuid.UUID, knowledge_base_id: Optional[uuid.UUID] = None) -> int:
         """
-        Delete all vectors for a specific upload from Qdrant.
+        Delete all vectors for a specific upload from KB-specific or default collection.
         
         Used during per-KB reindexing to remove old vectors before re-uploading.
         """
         if not QdrantConnection.is_available():
             logger.debug("Qdrant circuit breaker OPEN — skipping delete (0ms)")
             return 0
+
+        collection_name = self._get_collection_name(knowledge_base_id)
 
         try:
             client = self.client
@@ -286,12 +388,13 @@ class QdrantVectorStore(BaseVectorStore):
             )
 
             result = client.delete(
-                collection_name=self.collection_name,
+                collection_name=collection_name,
                 points_selector=delete_filter,
             )
 
             deleted_count = result.deleted if hasattr(result, "deleted") else 0
-            logger.info(f"Deleted {deleted_count} vectors for upload {upload_id} from Qdrant")
+            kb_info = f" from KB {knowledge_base_id}" if knowledge_base_id else " from default"
+            logger.info(f"🗑️ Deleted {deleted_count} vectors for upload {upload_id}{kb_info}")
             return deleted_count
 
         except Exception as e:

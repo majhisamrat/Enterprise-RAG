@@ -12,6 +12,12 @@ class ChatRepository(BaseRepository[ChatSession]):
     def __init__(self, session: AsyncSession):
         super().__init__(ChatSession, session)
 
+    async def get_session_by_id(self, session_id: uuid.UUID) -> Optional[ChatSession]:
+        """Get a chat session by ID without loading messages."""
+        stmt = select(ChatSession).where(ChatSession.id == session_id)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_session_with_messages(self, session_id: uuid.UUID) -> Optional[ChatSession]:
         stmt = (
             select(ChatSession)

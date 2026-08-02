@@ -15,9 +15,11 @@ export function AppLayout() {
         <div className="absolute -bottom-40 left-1/3 w-[700px] h-[700px] bg-cyan-400/10 rounded-full blur-[150px]" />
       </div>
 
-
       <div className="flex min-h-screen relative z-10">
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        <Sidebar 
+          collapsed={collapsed} 
+          onToggle={() => setCollapsed(!collapsed)}
+        />
 
         <main
           className={cn(
