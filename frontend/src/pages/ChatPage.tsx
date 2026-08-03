@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, History, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, History, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import type { ChatMessageDisplay } from '@/types/chat';
 import { FadeIn } from '@/components/shared/motion';
 import { cn } from '@/lib/utils';
@@ -44,16 +44,24 @@ export default function ChatPage() {
     fetchChatHistory();
   }, []);
 
+  // Helper to construct headers with auth token if available
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const token = localStorage.getItem('access_token');
+    if (token && token !== 'null' && token !== 'undefined') {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
   // Fetch chat history
   const fetchChatHistory = async () => {
     setLoadingHistory(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('/api/v1/chat/history', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders(),
       });
       
       if (response.ok) {
@@ -73,12 +81,8 @@ export default function ChatPage() {
     
     setLoadingSession(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`/api/v1/chat/history/${sessionIdToLoad}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders(),
       });
       
       if (response.ok) {
@@ -121,12 +125,9 @@ export default function ChatPage() {
     if (!confirm('Delete this chat session? This action cannot be undone.')) return;
     
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`/api/v1/chat/history/${sessionIdToDelete}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders(),
       });
       
       if (response.ok) {
@@ -172,11 +173,11 @@ export default function ChatPage() {
       });
 
       // Update session ID if new session was created
-      if (res.session_id && !sessionId) {
+      if (res.session_id) {
         setSessionId(res.session_id);
-        setCurrentSessionTitle(query.slice(0, 50) + (query.length > 50 ? '...' : '')); // Auto-generate title from first message
-        // Refresh history to show the new session
-        setTimeout(fetchChatHistory, 500);
+        if (!currentSessionTitle) {
+          setCurrentSessionTitle(query.slice(0, 50) + (query.length > 50 ? '...' : ''));
+        }
       }
 
       const assistantMsg: ChatMessageDisplay = {
@@ -189,6 +190,9 @@ export default function ChatPage() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Refresh chat history list after successful message
+      setTimeout(fetchChatHistory, 300);
     } catch {
       // Error handled by API interceptor
     }
@@ -205,6 +209,23 @@ export default function ChatPage() {
     <div className="flex-1 flex flex-col items-center justify-center py-2 h-[calc(100vh-7rem)] w-full">
       {/* ─── CHAT CONTAINER ─── */}
       <div className="w-full max-w-5xl h-full flex flex-col bg-card/90 backdrop-blur-2xl border border-border/80 rounded-3xl shadow-2xl overflow-visible relative glow-sm">
+
+        {/* ─── SIDEBAR OPEN TAB (bottom-left of card, shown when CLOSED) ─── */}
+        {!historyExpanded && (
+          <button
+            onClick={() => {
+              setHistoryExpanded(true);
+              if (chatHistoryData.length === 0) {
+                fetchChatHistory();
+              }
+            }}
+            title="Open chat history"
+            className="absolute left-0 bottom-24 -translate-x-[1px] z-50 flex items-center gap-1.5 pl-2 pr-2.5 py-2 rounded-l-xl bg-card border border-border/80 border-r-0 text-muted-foreground hover:text-primary hover:bg-primary/5 hover:border-primary/40 shadow-md transition-all duration-200 group"
+          >
+            <PanelLeftOpen className="h-4 w-4 group-hover:scale-110 transition-transform" />
+          </button>
+        )}
+
         {/* Chat Header */}
         <div className="px-6 py-4 border-b border-border/70 bg-muted/30 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -220,8 +241,8 @@ export default function ChatPage() {
                 {loadingSession && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
-              <p className="text-xs text-muted-foreground font-semibold">
-                Enterprise RAG Assistant
+              <p className="text-xs text-muted-foreground font-bold font-sketch tracking-wide">
+                ATLAS Assistant
               </p>
             </div>
           </div>
@@ -378,24 +399,6 @@ export default function ChatPage() {
           {/* Input Box */}
           <div className="p-6 relative">
             <div className="max-w-4xl mx-auto relative">
-              <Button
-                variant="ghost"
-                size="default"
-                onClick={() => {
-                  setHistoryExpanded(!historyExpanded);
-                  if (!historyExpanded && chatHistoryData.length === 0) {
-                    fetchChatHistory();
-                  }
-                }}
-                title="Toggle chat history"
-                className="absolute -left-8 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full border border-white/10 bg-slate-950/95 text-white shadow-xl shadow-slate-950/30 hover:bg-slate-900/95 z-40"
-              >
-                {historyExpanded ? (
-                  <ChevronLeft className="h-5 w-5" />
-                ) : (
-                  <ChevronRight className="h-5 w-5" />
-                )}
-              </Button>
 
               <div className="relative rounded-2xl border border-border/80 bg-card shadow-lg p-4 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                 <Textarea
@@ -437,9 +440,19 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Slide-In History Panel - APPEARS FROM THE LEFT SIDE */}
+        {/* ─── SLIDE-IN HISTORY PANEL ─── */}
         {historyExpanded && (
-          <div className="absolute inset-y-0 left-0 w-80 border-r border-border/40 bg-card/95 backdrop-blur-sm z-30 animate-in slide-in-from-left-full duration-300">
+          <div className="absolute inset-y-0 left-0 w-80 border-r border-border/40 bg-card/95 backdrop-blur-sm z-30 animate-in slide-in-from-left-full duration-300 rounded-l-3xl">
+
+            {/* ─── SIDEBAR CLOSE TAB (bottom-right of sidebar panel) ─── */}
+            <button
+              onClick={() => setHistoryExpanded(false)}
+              title="Close chat history"
+              className="absolute right-0 bottom-24 translate-x-[calc(100%-1px)] z-50 flex items-center gap-1.5 pl-2 pr-2.5 py-2 rounded-r-xl bg-card border border-border/80 border-l-0 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 shadow-md transition-all duration-200 group"
+            >
+              <PanelLeftClose className="h-4 w-4 group-hover:scale-110 transition-transform" />
+            </button>
+
             <div className="h-full overflow-y-auto">
               <div className="p-6">
                 <div className="max-w-4xl mx-auto">
@@ -467,7 +480,7 @@ export default function ChatPage() {
                       <p className="text-xs mt-1">Start chatting to see your history here</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       {chatHistoryData.map((session) => (
                         <div
                           key={session.session_id}

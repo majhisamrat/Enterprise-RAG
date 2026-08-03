@@ -31,6 +31,7 @@ class ChatRepository(BaseRepository[ChatSession]):
         stmt = (
             select(ChatSession)
             .where(ChatSession.user_id == user_id)
+            .options(selectinload(ChatSession.messages))
             .order_by(ChatSession.updated_at.desc())
             .limit(limit)
         )

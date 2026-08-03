@@ -15,7 +15,7 @@ const HERO_TEXT_PRESETS = [
   {
     id: 'workflow',
     label: 'Document Workflow',
-    text: 'Start with raw doc -> Have a doc? If yes: Copy paste into Enterprise RAG. If no: Type idea -> Spark auto-visuals -> Share with team.',
+    text: 'Start with raw doc -> Have a doc? If yes: Copy paste into ATLAS. If no: Type idea -> Spark auto-visuals -> Share with team.',
     nodes: [
       { id: '1', title: 'Start', type: 'start', label: 'Start' },
       { id: '2', title: 'Have a doc?', type: 'decision', label: 'Have a doc?' },
@@ -27,7 +27,7 @@ const HERO_TEXT_PRESETS = [
   },
   {
     id: 'rag',
-    label: 'Enterprise RAG System',
+    label: 'ATLAS System',
     text: 'User query -> Query Router -> Hybrid Retrieval (Vector + BM25) -> Context Re-ranking -> LLM Synthesis -> Structured Response.',
     nodes: [
       { id: '1', title: 'User Query', type: 'start', label: 'User Query' },
@@ -41,11 +41,11 @@ const HERO_TEXT_PRESETS = [
   {
     id: 'product',
     label: 'Feature Launch Strategy',
-    text: 'User Research -> PRD Spec -> Enterprise RAG Visual Diagrams -> Team Review -> Engineering Build -> Launch.',
+    text: 'User Research -> PRD Spec -> ATLAS Visual Diagrams -> Team Review -> Engineering Build -> Launch.',
     nodes: [
       { id: '1', title: 'User Research', type: 'start', label: 'Research' },
       { id: '2', title: 'Write PRD', type: 'action', label: 'PRD Spec' },
-      { id: '3a', title: 'Enterprise RAG Diagram', type: 'spark', label: 'Visual RAG' },
+      { id: '3a', title: 'ATLAS Diagram', type: 'spark', label: 'Visual RAG' },
       { id: '4', title: 'Team Review', type: 'decision', label: 'Feedback' },
       { id: '5', title: 'Ship Feature', type: 'end', label: 'Launch' }
     ]
@@ -88,8 +88,8 @@ const BLOG_POSTS: BlogPost[] = [
       'Cognitive load theory shows that human brains process visual structures up to 60,000 times faster than raw text. By pairing text paragraphs with dynamically updated flowcharts, decision trees, and sequence diagrams, teams bridge the gap between abstract code logic and real-world execution.',
       '### Key Benefits of Auto-Generated Visuals',
       '1. Instant Clarity: New team members grasp microservice interactions in seconds rather than hours.\n2. Reduced Maintenance: When your specs update, visual diagrams refresh automatically without tedious manual vector edits.\n3. Better Cross-Functional Alignment: Product managers, QA testers, and software architects view the exact same source of truth.',
-      '### Implementing Enterprise RAG in Your Workspace',
-      'With Enterprise RAG, copying text from Notion, Google Docs, or markdown files instantly yields publication-ready visuals. Try pasting your system design spec into Enterprise RAG to see the transformation in real-time.'
+      '### Implementing ATLAS in Your Workspace',
+      'With ATLAS, copying text from Notion, Google Docs, or markdown files instantly yields publication-ready visuals. Try pasting your system design spec into ATLAS to see the transformation in real-time.'
     ],
     tags: ['Documentation', 'UX Design', 'Visual RAG', 'Productivity']
   },
@@ -108,7 +108,7 @@ const BLOG_POSTS: BlogPost[] = [
     content: [
       'Visual diagram generation has evolved beyond simple template pickers. Modern AI models analyze sentence grammar, entity relationships, and causal logic to synthesize dynamic diagram layouts.',
       '### Structural Parsing Engine',
-      'When text is input into Enterprise RAG, our parser executes a three-phase pipeline:',
+      'When text is input into ATLAS, our parser executes a three-phase pipeline:',
       '1. Entity & Action Extraction: Identifying key steps, conditions (if/else), parallel paths, and outcomes.\n2. Graph Topography Synthesis: Constructing directed acyclic graphs (DAGs) representing flow direction.\n3. Aesthetic Layout Engine: Applying color harmony, node spacing, and vector icons based on design tokens.',
       '### The Future of Visual Interfaces',
       'As AI agents assist in drafting technical docs and enterprise knowledge bases, text and visuals will no longer be separate static artifacts—they will exist as fluid, interconnected knowledge graphs.'
@@ -136,15 +136,15 @@ const BLOG_POSTS: BlogPost[] = [
       '### 3. Decision Trees (If / Else Logic)',
       'Essential for troubleshooting guides, customer support escalations, and feature flag routing.',
       '### 4. Concentric Mind Maps',
-      'Best for brainstorming feature sets, organizing enterprise RAG knowledge collections, or mapping product architecture components.',
-      'Enterprise RAG allows you to switch between all these visual frameworks with a single click, instantly transforming your text into any desired visual layout.'
+      'Best for brainstorming feature sets, organizing enterprise ATLAS knowledge collections, or mapping product architecture components.',
+      'ATLAS allows you to switch between all these visual frameworks with a single click, instantly transforming your text into any desired visual layout.'
     ],
     tags: ['Product Management', 'Frameworks', 'Design Systems', 'Workflows']
   },
   {
     id: 'notes-to-presentations-workflow',
     title: 'From Notes to Presentations: Streamlining Enterprise Workflows',
-    category: 'Enterprise RAG',
+    category: 'ATLAS',
     readTime: '3 min read',
     date: 'July 15, 2026',
     author: {
@@ -156,12 +156,12 @@ const BLOG_POSTS: BlogPost[] = [
     content: [
       'Enterprise teams waste hundreds of hours every week manually drawing shapes in PowerPoint or Figma just to explain simple processes to stakeholders.',
       '### The Zero-Graphic-Design Workflow',
-      'By bringing Enterprise RAG into your document stack, team members simply type or paste their notes. Enterprise RAG turns bullet points into polished, interactive visual graphics automatically.',
+      'By bringing ATLAS into your document stack, team members simply type or paste their notes. ATLAS turns bullet points into polished, interactive visual graphics automatically.',
       '### Integration Across Tools',
-      'Whether your team uses Notion, Google Docs, Microsoft Word, or Slack, Enterprise RAG embeds seamlessly to convert text into high-resolution PNG, SVG, or interactive embed blocks.',
-      'Start using Enterprise RAG today to turn your enterprise knowledge bases into visual, easy-to-read assets!'
+      'Whether your team uses Notion, Google Docs, Microsoft Word, or Slack, ATLAS embeds seamlessly to convert text into high-resolution PNG, SVG, or interactive embed blocks.',
+      'Start using ATLAS today to turn your enterprise knowledge bases into visual, easy-to-read assets!'
     ],
-    tags: ['Enterprise RAG', 'Automation', 'Presentations', 'Team Collaboration']
+    tags: ['ATLAS', 'Automation', 'Presentations', 'Team Collaboration']
   }
 ];
 
@@ -211,8 +211,8 @@ export default function LandingPage() {
                 <Sparkles className="absolute -top-1 -right-1 h-3.5 w-3.5 text-sky-300 animate-pulse" />
               </div>
 
-              <span className="text-2xl font-black tracking-tight text-slate-900">
-                Enterprise RAG
+              <span className="text-3.5xl sm:text-4xl font-sketch font-bold tracking-wider text-black drop-shadow-sm">
+                ATLAS
               </span>
             </div>
           </div>
@@ -267,7 +267,7 @@ export default function LandingPage() {
                   onClick={() => navigate('/login')}
                   className="bg-[#262626] hover:bg-black text-white text-base font-bold px-6 py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 whitespace-nowrap"
                 >
-                  Get Enterprise RAG Free
+                  Get ATLAS Free
                 </button>
               </>
             )}
@@ -317,7 +317,7 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mt-6 text-xl sm:text-2xl text-slate-600 max-w-3xl font-medium leading-relaxed"
           >
-            Enterprise RAG combines hybrid vector search, context re-ranking, AI chat synthesis, and instant text-to-diagram generation into one powerful workspace.
+            ATLAS combines hybrid vector search, context re-ranking, AI chat synthesis, and instant text-to-diagram generation into one powerful workspace.
           </motion.p>
 
           {/* Quick Feature Highlights Pills */}
@@ -547,7 +547,7 @@ export default function LandingPage() {
                         Visual Graphics
                       </div>
                       <div className="z-10 bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-300 font-extrabold text-xs text-slate-800 shadow-md">
-                        Enterprise RAG Magic
+                        ATLAS Magic
                       </div>
                     </div>
                   )}
@@ -584,7 +584,7 @@ export default function LandingPage() {
                   onClick={handlePrimaryAction}
                   className="text-slate-900 font-extrabold hover:underline flex items-center gap-1"
                 >
-                  Edit in Enterprise RAG Free
+                  Edit in ATLAS Free
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -673,8 +673,8 @@ export default function LandingPage() {
                   </div>
 
                   <p className="text-lg text-slate-600 font-medium">
-                    {activeStep === 1 && 'Forget prompting, Enterprise RAG works directly from your text notes, specs, or documents.'}
-                    {activeStep === 2 && 'Enterprise RAG parses paragraphs into flowcharts, Venn diagrams, sequence maps, and mindmaps automatically.'}
+                    {activeStep === 1 && 'Forget prompting, ATLAS works directly from your text notes, specs, or documents.'}
+                    {activeStep === 2 && 'ATLAS parses paragraphs into flowcharts, Venn diagrams, sequence maps, and mindmaps automatically.'}
                     {activeStep === 3 && 'Tailor your visual aesthetics with enterprise themes, custom font families, and high-res vector icons.'}
                     {activeStep === 4 && 'Copy high-resolution vector assets directly into Notion, Google Slides, Figma, or download as SVG.'}
                   </p>
@@ -684,7 +684,7 @@ export default function LandingPage() {
                       onClick={handlePrimaryAction}
                       className="bg-slate-900 hover:bg-black text-white px-6 py-3 rounded-xl font-bold transition-all shadow-md flex items-center gap-2"
                     >
-                      Try Step {activeStep} in Enterprise RAG Free
+                      Try Step {activeStep} in ATLAS Free
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -692,7 +692,7 @@ export default function LandingPage() {
               </AnimatePresence>
             </div>
 
-            {/* Right Side: Graphic showing documents flowing into Enterprise RAG */}
+            {/* Right Side: Graphic showing documents flowing into ATLAS */}
             <div className="lg:col-span-6 flex justify-center">
               <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl p-8 shadow-xl flex items-center justify-center">
 
@@ -705,7 +705,7 @@ export default function LandingPage() {
                       <span>⌘</span> + <span>V</span>
                     </div>
                     <div className="text-xs font-bold text-slate-500">
-                      Paste text in Enterprise RAG
+                      Paste text in ATLAS
                     </div>
                     <div className="space-y-1.5 pt-2 border-t border-slate-100">
                       <div className="h-2 bg-slate-200 rounded-full w-full" />
@@ -748,7 +748,7 @@ export default function LandingPage() {
                 Latest Insights
               </span>
               <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mt-3">
-                Enterprise RAG Blog & Stories
+                ATLAS Blog & Stories
               </h2>
               <p className="text-lg text-slate-600 font-medium mt-2 max-w-xl">
                 Explore how visual RAG, automated diagramming, and text-to-graphics transform enterprise communication.
@@ -883,7 +883,7 @@ export default function LandingPage() {
                   onClick={handlePrimaryAction}
                   className="bg-white text-slate-900 px-5 py-2.5 rounded-xl font-extrabold text-sm hover:bg-slate-100 transition-all shadow-md"
                 >
-                  Get Enterprise RAG Free
+                  Get ATLAS Free
                 </button>
               </div>
 
@@ -942,7 +942,7 @@ export default function LandingPage() {
                 onClick={handlePrimaryAction}
                 className="w-full bg-slate-900 hover:bg-black text-white font-extrabold py-3.5 rounded-xl transition-all shadow-md"
               >
-                Get Enterprise RAG Free
+                Get ATLAS Free
               </button>
             </div>
 
@@ -1002,7 +1002,7 @@ export default function LandingPage() {
       </section>
 
 
-      {/* ─── TRY ENTERPRISE RAG CTA SECTION ─── */}
+      {/* ─── TRY ATLAS CTA SECTION ─── */}
       <section className="py-24 bg-white/70 dot-grid-pattern relative overflow-hidden text-center border-t border-slate-100">
 
         {/* Background Geometric Faint Diagrams */}
@@ -1022,7 +1022,7 @@ export default function LandingPage() {
           </div>
 
           <h2 className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tight">
-            Try Enterprise RAG!
+            Try ATLAS!
           </h2>
 
           <p className="mt-4 text-xl text-slate-600 font-medium max-w-xl mx-auto">
@@ -1034,7 +1034,7 @@ export default function LandingPage() {
               onClick={handlePrimaryAction}
               className="bg-[#383838] hover:bg-black text-white text-xl font-bold px-10 py-4 rounded-2xl transition-all shadow-xl hover:shadow-2xl active:scale-95 inline-flex items-center gap-3"
             >
-              Get Enterprise RAG Free
+              Get ATLAS Free
             </button>
           </div>
 
@@ -1054,11 +1054,11 @@ export default function LandingPage() {
                   <Brain className="h-5 w-5 text-white" />
                   <Sparkles className="absolute -top-1 -right-1 h-3.5 w-3.5 text-sky-300 animate-pulse" />
                 </div>
-                <span className="text-2xl font-black tracking-tight">Enterprise RAG</span>
+                <span className="text-3xl font-sketch font-bold tracking-wide">ATLAS</span>
               </div>
 
               <p className="text-xs text-slate-400 font-medium">
-                © 2026 Enterprise RAG. All rights reserved.
+                © 2026 ATLAS. All rights reserved.
               </p>
             </div>
 

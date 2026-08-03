@@ -59,8 +59,8 @@ export function Sidebar({ collapsed, onToggle }: {
             </div>
             {!isCollapsed && (
               <div className="flex flex-col transition-opacity duration-200">
-                <span className="font-extrabold text-lg tracking-tight text-foreground">
-                  Enterprise RAG
+                <span className="font-sketch font-bold text-3xl tracking-wider text-foreground">
+                  ATLAS
                 </span>
                 <span className="text-[11px] font-bold tracking-widest text-primary uppercase">
                   AI Platform

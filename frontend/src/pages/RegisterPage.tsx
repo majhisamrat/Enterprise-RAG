@@ -70,7 +70,7 @@ export default function RegisterPage() {
             Create Your Account
           </h1>
           <p className="text-base text-muted-foreground font-semibold">
-            Get started with Enterprise RAG in less than two minutes
+            Get started with ATLAS in less than two minutes
           </p>
         </div>
 

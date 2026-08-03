@@ -54,8 +54,8 @@ export default function LoginPage() {
             <Brain className="h-10 w-10 text-white" />
             <Sparkles className="absolute -top-1 -right-1 h-5 w-5 text-sky-300 animate-pulse" />
           </div>
-          <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-foreground">
-            Enterprise RAG
+          <h1 className="text-5xl lg:text-6xl font-sketch font-bold tracking-wide text-foreground">
+            ATLAS
           </h1>
           <p className="text-base text-muted-foreground font-semibold">
             Sign in to access your intelligent document workspace
