@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { useKnowledgeBases } from '@/hooks/useKnowledge';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -9,7 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, Database } from 'lucide-react';
 import type { ChatMessageDisplay } from '@/types/chat';
 import { FadeIn } from '@/components/shared/motion';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ export default function ChatPage() {
   const chatMutation = useChat();
   const { data: kbs } = useKnowledgeBases();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -204,9 +206,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center py-2 w-full">
-      {/* ─── FIXED CHAT CONTAINER (LARGER HEIGHT) ─── */}
-      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-6xl h-[90vh] max-h-[1200px] min-h-[800px] flex flex-col bg-card/90 backdrop-blur-2xl border border-border/80 rounded-3xl shadow-2xl overflow-hidden glow-sm z-10">
+    <div className="flex-1 w-full h-full flex flex-col md:items-center md:justify-center md:py-2">
+      {/* ─── RESPONSIVE CHAT CONTAINER ─── */}
+      <div className="w-full md:max-w-6xl md:h-[90vh] md:max-h-[1200px] md:min-h-[800px] flex flex-col bg-card/90 backdrop-blur-2xl md:border md:border-border/80 md:rounded-3xl md:shadow-2xl md:overflow-hidden md:glow-sm z-10 h-screen md:fixed md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2">
 
         {/* ─── EDGE TOGGLE ARROW (LEFT EDGE OF FIXED CARD) ─── */}
         {!historyExpanded && (
@@ -218,25 +220,25 @@ export default function ChatPage() {
               }
             }}
             title="Open chat history"
-            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-50 flex items-center justify-center w-7 h-14 rounded-r-xl rounded-l-md bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-900/30 hover:from-primary hover:to-blue-700 hover:shadow-primary/30 transition-all duration-300 group border border-white/10"
+            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-50 items-center justify-center w-7 h-14 rounded-r-xl rounded-l-md bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-900/30 hover:from-primary hover:to-blue-700 hover:shadow-primary/30 transition-all duration-300 group border border-white/10"
           >
             <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
           </button>
         )}
         {/* Chat Header */}
-        <div className="px-6 py-4 border-b border-border/70 bg-muted/30 flex items-center justify-between shrink-0">
+        <div className="px-4 md:px-6 py-4 border-b border-border/70 bg-muted/30 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-md shadow-primary/20">
               <Brain className="h-5 w-5 text-white" />
               <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-sky-300 animate-pulse" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-base tracking-tight text-foreground">
+                <h2 className="font-bold text-sm md:text-base tracking-tight text-foreground truncate">
                   {currentSessionTitle || 'Atlas Assistant'}
                 </h2>
-                {loadingSession && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                {loadingSession && <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />}
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               </div>
               {currentSessionTitle && (
                 <p className="text-xs text-muted-foreground font-semibold">
@@ -246,10 +248,21 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Knowledge Base Filter */}
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Knowledge Base Icon Button (Mobile only) */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => navigate('/knowledge')}
+              title="Go to Knowledge Bases"
+              className="md:hidden h-9 w-9 rounded-xl border-border hover:bg-muted"
+            >
+              <Database className="h-4 w-4" />
+            </Button>
+
+            {/* Knowledge Base Filter (Desktop only) */}
             <Select value={selectedKb} onValueChange={setSelectedKb}>
-              <SelectTrigger className="w-[200px] h-10 text-xs font-bold rounded-xl bg-background/80 border-border">
+              <SelectTrigger className="hidden md:flex w-[200px] h-10 text-xs font-bold rounded-xl bg-background/80 border-border">
                 <SelectValue placeholder="All Knowledge Bases" />
               </SelectTrigger>
               <SelectContent>
@@ -266,28 +279,28 @@ export default function ChatPage() {
                 variant="outline"
                 size="sm"
                 onClick={startNewChat}
-                className="gap-2 h-10 text-xs font-bold rounded-xl border-border hover:bg-muted px-4"
+                className="gap-2 h-9 md:h-10 text-xs font-bold rounded-xl border-border hover:bg-muted px-2 md:px-4"
               >
                 <Plus className="h-4 w-4" />
-                New Chat
+                <span className="hidden md:inline">New Chat</span>
               </Button>
             )}
           </div>
         </div>
 
-        {/* ─── MESSAGES AREA (TALLER CONTAINER) ─── */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-8 lg:p-10 bg-background/50">
-          <div className="max-w-5xl mx-auto space-y-8 h-full">
+        {/* ─── MESSAGES AREA ─── */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8 lg:p-10 bg-background/50">
+          <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 h-full">
             {messages.length === 0 ? (
-              <FadeIn className="h-full flex flex-col justify-center items-center py-12 space-y-8 text-center">
-                <div className="p-6 rounded-3xl bg-primary/10 border border-primary/20 shadow-lg glow-sm">
-                  <MessageSquare className="h-12 w-12 text-primary" />
+              <FadeIn className="h-full flex flex-col justify-center items-center py-12 space-y-6 md:space-y-8 text-center">
+                <div className="p-4 md:p-6 rounded-3xl bg-primary/10 border border-primary/20 shadow-lg glow-sm">
+                  <MessageSquare className="h-8 md:h-12 w-8 md:w-12 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold tracking-tight text-foreground">
+                  <h3 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
                     Start a New Conversation
                   </h3>
-                  <p className="text-base text-muted-foreground mt-2 max-w-lg leading-relaxed">
+                  <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-lg leading-relaxed">
                     Ask questions about your knowledge base documents and get AI-powered insights.
                   </p>
                 </div>
@@ -297,15 +310,15 @@ export default function ChatPage() {
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Suggested Prompts
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 max-w-2xl mx-auto px-2 md:px-0">
                     {promptSuggestions.map((suggestion, i) => (
                       <button
                         key={i}
                         onClick={() => handleSend(suggestion)}
-                        className="p-5 text-left rounded-xl border border-border/80 bg-card/60 hover:bg-muted hover:border-primary/40 transition-all duration-200 text-base sm:text-lg font-semibold text-muted-foreground hover:text-foreground group flex items-start justify-between gap-3 shadow-sm"
+                        className="p-3 md:p-5 text-left rounded-xl border border-border/80 bg-card/60 hover:bg-muted hover:border-primary/40 transition-all duration-200 text-sm md:text-base font-semibold text-muted-foreground hover:text-foreground group flex items-start justify-between gap-3 shadow-sm"
                       >
-                        <span className="leading-relaxed">{suggestion}</span>
-                        <ArrowUpRight className="h-5 w-5 shrink-0 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="leading-relaxed text-xs md:text-sm line-clamp-3">{suggestion}</span>
+                        <ArrowUpRight className="h-4 md:h-5 w-4 md:w-5 shrink-0 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
                     ))}
                   </div>
@@ -314,40 +327,40 @@ export default function ChatPage() {
             ) : (
               messages.map((msg) => (
                 <FadeIn key={msg.id} direction="up" duration={0.3} className="space-y-3">
-                  <div className={`flex gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex gap-2 md:gap-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'assistant' && (
-                      <Avatar className="h-10 w-10 mt-1 shrink-0 shadow-md shadow-primary/20">
-                        <AvatarFallback className="bg-gradient-to-br from-primary via-blue-600 to-indigo-600 text-white font-bold text-sm">
-                          <Brain className="h-5 w-5" />
+                      <Avatar className="h-8 md:h-10 w-8 md:w-10 mt-1 shrink-0 shadow-md shadow-primary/20">
+                        <AvatarFallback className="bg-gradient-to-br from-primary via-blue-600 to-indigo-600 text-white font-bold text-xs md:text-sm">
+                          <Brain className="h-4 md:h-5 w-4 md:w-5" />
                         </AvatarFallback>
                       </Avatar>
                     )}
 
-                    <div className={`max-w-[80%] space-y-3 ${msg.role === 'user' ? 'order-first' : ''}`}>
-                      {/* Message Card (LARGER IN TALLER CONTAINER) */}
+                    <div className={`max-w-[85%] md:max-w-[80%] space-y-2 md:space-y-3 ${msg.role === 'user' ? 'order-first' : ''}`}>
+                      {/* Message Card */}
                       <Card
-                        className={`p-6 lg:p-8 rounded-2xl text-lg lg:text-xl leading-relaxed font-medium ${
+                        className={`p-4 md:p-6 lg:p-8 rounded-2xl text-sm md:text-lg lg:text-xl leading-relaxed font-medium ${
                           msg.role === 'user'
                             ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white border-transparent shadow-md shadow-purple-500/25'
                             : 'bg-card text-foreground border border-border/80 shadow-sm'
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                       </Card>
 
                       {/* Sources */}
                       {msg.sources && msg.sources.length > 0 && (
-                        <div className="p-4 rounded-xl bg-muted/40 border border-border/60 space-y-2 text-xs">
+                        <div className="p-3 md:p-4 rounded-xl bg-muted/40 border border-border/60 space-y-2 text-xs">
                           <p className="text-muted-foreground font-bold flex items-center gap-2 text-xs uppercase tracking-wider">
-                            <BookOpen className="h-4 w-4 text-primary" />
+                            <BookOpen className="h-3 md:h-4 w-3 md:w-4 text-primary shrink-0" />
                             Sources ({msg.sources.length})
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {msg.sources.slice(0, 6).map((src, i) => (
-                              <Badge key={i} variant="outline" className="text-xs font-semibold py-1 px-3 gap-1 bg-card/80 border-border">
+                              <Badge key={i} variant="outline" className="text-xs font-semibold py-1 px-2 md:px-3 gap-1 bg-card/80 border-border">
                                 <span className="font-mono text-primary text-xs">{src.citation_key}</span>
                                 <span>-</span>
-                                <span className="truncate max-w-[200px]">{src.document_name || src.title}</span>
+                                <span className="truncate max-w-[150px] md:max-w-[200px]">{src.document_name || src.title}</span>
                               </Badge>
                             ))}
                           </div>
@@ -364,9 +377,9 @@ export default function ChatPage() {
                     </div>
 
                     {msg.role === 'user' && (
-                      <Avatar className="h-10 w-10 mt-1 shrink-0">
-                        <AvatarFallback className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-600 font-bold text-sm">
-                          <User className="h-5 w-5" />
+                      <Avatar className="h-8 md:h-10 w-8 md:w-10 mt-1 shrink-0">
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-600 font-bold text-xs md:text-sm">
+                          <User className="h-4 md:h-5 w-4 md:w-5" />
                         </AvatarFallback>
                       </Avatar>
                     )}
@@ -376,14 +389,14 @@ export default function ChatPage() {
             )}
 
             {chatMutation.isPending && (
-              <FadeIn className="flex items-center gap-4">
-                <Avatar className="h-10 w-10 shadow-md shadow-primary/20">
-                  <AvatarFallback className="bg-gradient-to-br from-primary via-blue-600 to-indigo-600 text-white">
-                    <Brain className="h-5 w-5 animate-spin-slow" />
+              <FadeIn className="flex items-center gap-3 md:gap-4">
+                <Avatar className="h-8 md:h-10 w-8 md:w-10 shadow-md shadow-primary/20 shrink-0">
+                  <AvatarFallback className="bg-gradient-to-br from-primary via-blue-600 to-indigo-600 text-white text-xs md:text-sm">
+                    <Brain className="h-4 md:h-5 w-4 md:w-5 animate-spin-slow" />
                   </AvatarFallback>
                 </Avatar>
-                <Card className="p-4 rounded-xl bg-card border border-border flex items-center gap-3 text-sm font-semibold text-muted-foreground">
-                  <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                <Card className="p-3 md:p-4 rounded-xl bg-card border border-border flex items-center gap-3 text-xs md:text-sm font-semibold text-muted-foreground">
+                  <Loader2 className="h-3 md:h-4 w-3 md:w-4 text-primary animate-spin shrink-0" />
                   <span className="animate-pulse">Thinking...</span>
                 </Card>
               </FadeIn>
@@ -395,11 +408,10 @@ export default function ChatPage() {
 
         {/* ─── INPUT AREA ─── */}
         <div className="border-t border-border/70 bg-muted/20 shrink-0">
-          {/* Input Box (SMALLER) */}
-          <div className="p-4 relative">
+          {/* Input Box */}
+          <div className="p-3 md:p-4 relative">
             <div className="max-w-5xl mx-auto relative">
-
-              <div className="relative rounded-2xl border border-border/80 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-lg p-4 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+              <div className="relative rounded-2xl border border-border/80 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-lg p-3 md:p-4 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -409,12 +421,12 @@ export default function ChatPage() {
                       ? `Ask about ${kbs?.find((k) => k.id === selectedKb)?.display_name}...`
                       : 'Ask anything across your knowledge bases...'
                   }
-                  className="min-h-[60px] max-h-[160px] border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-2 px-4 text-base font-medium placeholder:text-white/70 text-white"
+                  className="min-h-[50px] md:min-h-[60px] max-h-[120px] md:max-h-[160px] border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-2 px-3 md:px-4 text-sm md:text-base font-medium placeholder:text-white/70 text-white"
                   rows={1}
                 />
 
-                <div className="flex items-center justify-between px-3 pt-2 border-t border-blue-500/30">
-                  <span className="text-xs font-medium text-white">
+                <div className="flex items-center justify-between px-2 md:px-3 pt-2 border-t border-blue-500/30">
+                  <span className="text-xs font-medium text-white hidden md:block">
                     Press <kbd className="px-1.5 py-0.5 rounded bg-white/30 font-mono text-xs font-bold text-white">Enter</kbd> to send
                   </span>
 
@@ -422,14 +434,14 @@ export default function ChatPage() {
                     onClick={() => handleSend()}
                     disabled={!input.trim() || chatMutation.isPending}
                     size="default"
-                    className="gap-2 shadow-lg shadow-primary/25 px-5 h-9 font-bold text-sm rounded-xl"
+                    className="gap-2 shadow-lg shadow-primary/25 px-3 md:px-5 h-8 md:h-9 font-bold text-xs md:text-sm rounded-xl ml-auto"
                   >
                     {chatMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3 md:h-4 w-3 md:w-4 animate-spin" />
                     ) : (
                       <>
-                        <span>Send</span>
-                        <Send className="h-4 w-4" />
+                        <span className="hidden md:inline">Send</span>
+                        <Send className="h-3 md:h-4 w-3 md:w-4" />
                       </>
                     )}
                   </Button>
@@ -439,9 +451,9 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* ─── SLIDE-IN HISTORY PANEL ─── */}
+        {/* ─── SLIDE-IN HISTORY PANEL (HIDDEN ON MOBILE) ─── */}
         {historyExpanded && (
-          <div className="absolute inset-y-0 left-0 w-80 border-r border-border/40 bg-card/95 backdrop-blur-sm z-30 animate-in slide-in-from-left-full duration-300 rounded-l-3xl">
+          <div className="hidden md:block absolute inset-y-0 left-0 w-80 border-r border-border/40 bg-card/95 backdrop-blur-sm z-30 animate-in slide-in-from-left-full duration-300 rounded-l-3xl">
 
             {/* ─── EDGE TOGGLE ARROW (RIGHT EDGE OF SIDEBAR - shown when sidebar is OPEN) ─── */}
             <button
