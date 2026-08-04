@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Brain, Sparkles, Lock, Mail, ArrowRight, Loader2, ShieldCheck, Database, Search } from 'lucide-react';
+import { Brain, Sparkles, Lock, Mail, ArrowRight, Loader2, ShieldCheck, FileText, MessageSquare, Quote, Eye, EyeOff } from 'lucide-react';
 import { ScaleIn } from '@/components/shared/motion';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login, isAuthenticated } = useAuth();
@@ -38,38 +39,29 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleSignIn = () => {
+    setError('Google sign-in will be available when OAuth is configured.');
+  };
+
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background text-foreground relative overflow-hidden p-6 selection:bg-primary/20 selection:text-primary">
-      {/* Background Mesh Gradients */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <div className="absolute top-1/4 left-1/4 w-[700px] h-[700px] bg-primary/15 rounded-full blur-[150px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-[700px] h-[700px] bg-purple-600/15 rounded-full blur-[150px] animate-pulse" />
-      </div>
-
-      <ScaleIn className="w-full max-w-2xl relative z-10">
-        {/* Brand Header */}
-        <div className="flex flex-col items-center text-center mb-8 space-y-3">
-          <div className="relative flex h-18 w-18 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-xl shadow-primary/30 glow-md">
-            <Brain className="h-10 w-10 text-white" />
-            <Sparkles className="absolute -top-1 -right-1 h-5 w-5 text-sky-300 animate-pulse" />
-          </div>
-          <h1 className="text-5xl lg:text-6xl font-sketch font-bold tracking-wide text-foreground">
-            ATLAS
-          </h1>
-          <p className="text-base text-muted-foreground font-semibold">
-            Sign in to access your intelligent document workspace
-          </p>
+    <div className="min-h-screen bg-[#f8fcff] text-foreground selection:bg-primary/20 selection:text-primary lg:grid lg:grid-cols-2">
+      <section className="relative hidden overflow-hidden bg-[#082d69] p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute inset-0 opacity-80 aurora-panel mix-blend-screen" />
+        <div className="relative flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-[#0d479f]"><Brain className="h-6 w-6" /></span><span className="brand-atlas text-3xl leading-none">ATLAS</span></div>
+        <div className="relative max-w-xl"><div className="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-white/15 backdrop-blur"><Quote className="h-7 w-7 text-sky-200" /></div><h1 className="font-display text-5xl font-black leading-[1.02]">Bring calm clarity to your team’s most important work.</h1><p className="mt-6 max-w-md text-lg leading-8 text-blue-100">A considered workspace for every document, question, and decision.</p><div className="mt-10 flex gap-3"><div className="rounded-2xl bg-white/15 p-4 backdrop-blur"><FileText className="h-5 w-5 text-sky-200" /><p className="mt-5 text-sm font-bold">Connected knowledge</p></div><div className="rounded-2xl bg-white/15 p-4 backdrop-blur"><MessageSquare className="h-5 w-5 text-pink-200" /><p className="mt-5 text-sm font-bold">Grounded answers</p></div></div></div>
+        <div className="relative text-sm font-semibold text-blue-200">Trusted by teams who need answers they can stand behind.</div>
+      </section>
+      <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#8bd0f7_0%,#dff3ff_43%,#ffffff_100%)] p-5 sm:p-10">
+        <div className="absolute -right-28 -top-28 h-96 w-96 rounded-full bg-sky-100/60 blur-3xl" /><div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-white/80 blur-3xl" />
+      <ScaleIn className="relative z-10 w-full max-w-[34rem]">
+        <Link to="/landing" className="mb-12 flex items-center gap-3 lg:hidden"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#103d88] text-white"><Brain className="h-6 w-6" /></span><span className="brand-atlas text-3xl leading-none text-[#082c67]">ATLAS</span></Link>
+        <div className="mb-8 space-y-2">
+          <h1 className="font-display text-5xl font-black text-[#06285f]">Sign in</h1>
+          <p className="text-lg text-[#365c89]">Access your Atlas workspace.</p>
         </div>
-
-        {/* Form Card */}
-        <Card className="glass-card border border-border shadow-2xl p-10 md:p-12 rounded-3xl">
-          <CardHeader className="space-y-2 pb-6 p-0">
-            <CardTitle className="text-3xl font-black text-center text-foreground">Welcome Back</CardTitle>
-            <CardDescription className="text-center text-base font-semibold text-muted-foreground">
-              Enter your credentials to manage your knowledge bases
-            </CardDescription>
-          </CardHeader>
+        <Card className="border border-white/70 bg-white/72 p-8 shadow-[0_24px_60px_-35px_rgba(11,53,111,.30)] backdrop-blur sm:p-10 rounded-[1.8rem]">
+          <CardHeader className="sr-only"><CardTitle>Sign in</CardTitle><CardDescription>Enter your credentials</CardDescription></CardHeader>
 
           <CardContent className="p-0 pt-6">
             {error && (
@@ -78,9 +70,15 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <button type="button" onClick={handleGoogleSignIn} className="flex h-14 w-full items-center justify-center gap-3 rounded-full bg-[#1246b8] text-lg font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-[#0e3b99]">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-white text-base font-black text-[#1246b8]">G</span>
+              Continue with Google
+            </button>
+            <div className="my-7 flex items-center gap-3 text-sm font-medium text-[#4f6683]"><span className="h-px flex-1 bg-sky-200/80" />or<span className="h-px flex-1 bg-sky-200/80" /></div>
+
+            <form onSubmit={handleSubmit} className="space-y-7">
               <div className="space-y-2.5">
-                <Label htmlFor="email" className="text-base font-bold">Email Address</Label>
+                <Label htmlFor="email" className="text-base font-bold text-[#173a72]">Work email</Label>
                 <div className="relative flex items-center">
                   <Mail className="absolute left-4 z-10 h-5 w-5 text-muted-foreground pointer-events-none" />
                   <Input
@@ -90,7 +88,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     style={{ paddingLeft: '3.5rem' }}
-                    className="h-14 text-lg font-medium rounded-xl"
+                    className="h-14 text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf]"
                     required
                   />
                 </div>
@@ -98,24 +96,32 @@ export default function LoginPage() {
 
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-base font-bold">Password</Label>
+                  <Label htmlFor="password" className="text-base font-bold text-[#173a72]">Password</Label>
                 </div>
                 <div className="relative flex items-center">
                   <Lock className="absolute left-4 z-10 h-5 w-5 text-muted-foreground pointer-events-none" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    style={{ paddingLeft: '3.5rem' }}
-                    className="h-14 text-lg font-medium rounded-xl"
+                    style={{ paddingLeft: '3.5rem', paddingRight: '3.5rem' }}
+                    className="h-14 text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf]"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-3 grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-sky-50 hover:text-[#1246a7] focus:outline-none focus:ring-2 focus:ring-[#2465bf]/30"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
-              <Button type="submit" size="lg" className="w-full gap-3 mt-4 h-14 text-lg font-extrabold shadow-lg shadow-primary/25 rounded-xl" disabled={isLoading}>
+              <Button type="submit" size="lg" variant="outline" className="w-full gap-3 mt-3 h-14 text-lg font-extrabold rounded-full border-[#0d4abd] text-[#1246a7] bg-white/60 hover:bg-white hover:text-[#0d398a]" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -130,7 +136,7 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-8 text-center text-base font-semibold text-muted-foreground">
+            <div className="mt-7 text-center text-base font-semibold text-[#425b7c]">
               Don't have an account?{' '}
               <Link to="/register" className="font-extrabold text-primary hover:underline">
                 Create Account
@@ -139,19 +145,19 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Feature Highlights */}
-        <div className="mt-10 flex flex-wrap justify-center items-center gap-8 text-base font-bold text-muted-foreground">
+        <div className="mt-7 flex flex-wrap items-center gap-5 text-sm font-bold text-[#47688f]">
           <span className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" /> Enterprise Grade
           </span>
           <span className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-purple-500" /> Hybrid Search
+            <Sparkles className="h-5 w-5 text-purple-500" /> Hybrid Search
           </span>
           <span className="flex items-center gap-2">
-            <Search className="h-5 w-5 text-emerald-500" /> Fast RAG
+            <Brain className="h-5 w-5 text-emerald-500" /> Fast RAG
           </span>
         </div>
       </ScaleIn>
+      </section>
     </div>
   );
 }

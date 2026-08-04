@@ -44,7 +44,7 @@ export function Sidebar({ collapsed, onToggle }: {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-out glass-sidebar bg-card/90 backdrop-blur-2xl flex flex-col justify-between border-r border-border shadow-xl',
+        'fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-out glass-sidebar bg-white/90 backdrop-blur-2xl flex flex-col justify-between border-r border-sky-100 shadow-[8px_0_40px_-25px_rgba(10,50,100,.35)]',
         isCollapsed ? 'w-[76px]' : 'w-72',
       )}
     >
@@ -53,17 +53,17 @@ export function Sidebar({ collapsed, onToggle }: {
         {/* Brand Header */}
         <div className="flex items-center justify-between px-5 py-5 h-20 border-b border-border">
           <div className="flex items-center gap-3.5 overflow-hidden">
-            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-md shadow-primary/25 glow-sm">
+            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#123e88] shadow-md shadow-blue-900/20 glow-sm">
               <Brain className="h-6 w-6 text-white" />
               <Sparkles className="absolute -top-1 -right-1 h-3.5 w-3.5 text-sky-300 animate-pulse" />
             </div>
             {!isCollapsed && (
               <div className="flex flex-col transition-opacity duration-200">
-                <span className="font-sketch font-bold text-3xl tracking-wider text-foreground">
+                <span className="brand-atlas text-2xl leading-none text-[#082c67]">
                   ATLAS
                 </span>
-                <span className="text-[11px] font-bold tracking-widest text-primary uppercase">
-                  AI Platform
+                <span className="text-[10px] font-bold tracking-[0.16em] text-sky-700 uppercase">
+                  Intelligence hub
                 </span>
               </div>
             )}
@@ -95,8 +95,8 @@ export function Sidebar({ collapsed, onToggle }: {
                 className={cn(
                   'relative flex items-center gap-3.5 rounded-xl px-4 py-3 text-base font-semibold transition-all duration-200 group',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 font-bold'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    ? 'bg-[#123e88] text-primary-foreground shadow-md shadow-blue-900/20 font-bold'
+                    : 'text-muted-foreground hover:bg-sky-50 hover:text-[#123e88]',
                   isCollapsed && 'justify-center px-0',
                 )}
               >
