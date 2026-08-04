@@ -13,6 +13,8 @@ import {
   Sparkles,
   Sun,
   Moon,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -75,14 +77,14 @@ export function Sidebar({ collapsed, onToggle, isDrawerOpen, onDrawerClose }: {
             )}
           </div>
 
-          {/* Collapse Toggle Button */}
+          {/* Collapse Toggle Button - Menu Icon with Animation */}
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleCollapse}
-            className="hidden md:flex h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted"
+            className="hidden md:flex h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-transform duration-300"
           >
-            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {isCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
           </Button>
         </div>
 
