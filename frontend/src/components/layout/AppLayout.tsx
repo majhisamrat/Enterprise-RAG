@@ -34,18 +34,20 @@ export function AppLayout() {
       {/* Drawer Backdrop */}
       {drawerOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-30"
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
+      {/* Sidebar - outside the main flex container for proper z-index */}
+      <Sidebar 
+        collapsed={collapsed} 
+        onToggle={() => setCollapsed(!collapsed)}
+        isDrawerOpen={drawerOpen}
+        onDrawerClose={() => setDrawerOpen(false)}
+      />
+
       <div className="flex min-h-screen relative z-10 pt-16 md:pt-0">
-        <Sidebar 
-          collapsed={collapsed} 
-          onToggle={() => setCollapsed(!collapsed)}
-          isDrawerOpen={drawerOpen}
-          onDrawerClose={() => setDrawerOpen(false)}
-        />
 
         <main
           className={cn(
