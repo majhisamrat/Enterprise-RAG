@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, Database } from 'lucide-react';
+import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, Database, Menu } from 'lucide-react';
 import type { ChatMessageDisplay } from '@/types/chat';
 import { FadeIn } from '@/components/shared/motion';
 import { cn } from '@/lib/utils';
@@ -210,41 +210,56 @@ export default function ChatPage() {
       {/* ─── RESPONSIVE CHAT CONTAINER ─── */}
       <div className="w-full md:max-w-6xl md:h-[90vh] md:max-h-[1200px] md:min-h-[800px] flex flex-col bg-card/90 backdrop-blur-2xl md:border md:border-border/80 md:rounded-3xl md:shadow-2xl md:overflow-hidden md:glow-sm z-10 h-screen md:fixed md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2">
 
-        {/* ─── EDGE TOGGLE ARROW (LEFT EDGE OF FIXED CARD) ─── */}
-        {!historyExpanded && (
-          <button
-            onClick={() => {
-              setHistoryExpanded(true);
-              if (chatHistoryData.length === 0) {
-                fetchChatHistory();
-              }
-            }}
-            title="Open chat history"
-            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-50 items-center justify-center w-7 h-14 rounded-r-xl rounded-l-md bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-900/30 hover:from-primary hover:to-blue-700 hover:shadow-primary/30 transition-all duration-300 group border border-white/10"
-          >
-            <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        )}
+        {/* ─── EDGE TOGGLE ARROW (LEFT EDGE OF FIXED CARD) - REMOVED ─── */}
+
         {/* Chat Header */}
         <div className="px-4 md:px-6 py-4 border-b border-border/70 bg-muted/30 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-md shadow-primary/20">
-              <Brain className="h-5 w-5 text-white" />
-              <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-sky-300 animate-pulse" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-sm md:text-base tracking-tight text-foreground truncate">
+          <div className="flex items-center gap-3 md:gap-4">
+            {/* Menu Icon (Desktop only) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setHistoryExpanded(!historyExpanded);
+                if (chatHistoryData.length === 0 && !historyExpanded) {
+                  fetchChatHistory();
+                }
+              }}
+              title="Toggle chat history"
+              className="hidden md:flex h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            {/* Logo and Title (Desktop only) */}
+            <div className="hidden md:flex items-center gap-3">
+              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-md shadow-primary/20">
+                <Brain className="h-5 w-5 text-white" />
+                <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-sky-300 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-bold text-base tracking-tight text-foreground truncate">
                   {currentSessionTitle || 'Atlas Assistant'}
                 </h2>
-                {loadingSession && <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />}
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                {currentSessionTitle && (
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    Atlas Assistant
+                  </p>
+                )}
               </div>
-              {currentSessionTitle && (
-                <p className="text-xs text-muted-foreground font-semibold">
-                  Atlas Assistant
-                </p>
-              )}
+            </div>
+
+            {/* Mobile: Logo and Title only */}
+            <div className="md:hidden flex items-center gap-2">
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-md shadow-primary/20">
+                <Brain className="h-4 w-4 text-white" />
+                <Sparkles className="absolute -top-0.5 -right-0.5 h-2 w-2 text-sky-300 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-bold text-sm tracking-tight text-foreground truncate">
+                  {currentSessionTitle || 'Atlas Assistant'}
+                </h2>
+              </div>
             </div>
           </div>
 
