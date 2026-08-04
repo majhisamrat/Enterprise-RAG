@@ -249,17 +249,34 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Mobile: Logo and Title only */}
+            {/* Mobile: Menu + Logo + ATLAS (same as desktop layout) */}
             <div className="md:hidden flex items-center gap-2">
+              {/* Menu Icon */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setHistoryExpanded(!historyExpanded);
+                  if (chatHistoryData.length === 0 && !historyExpanded) {
+                    fetchChatHistory();
+                  }
+                }}
+                title="Toggle chat history"
+                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+
+              {/* Logo */}
               <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-blue-600 to-indigo-600 shadow-md shadow-primary/20">
                 <Brain className="h-4 w-4 text-white" />
                 <Sparkles className="absolute -top-0.5 -right-0.5 h-2 w-2 text-sky-300 animate-pulse" />
               </div>
-              <div className="min-w-0">
-                <h2 className="font-bold text-sm tracking-tight text-foreground truncate">
-                  {currentSessionTitle || 'Atlas Assistant'}
-                </h2>
-              </div>
+
+              {/* ATLAS Text */}
+              <h2 className="font-bold text-sm tracking-tight text-foreground">
+                ATLAS
+              </h2>
             </div>
           </div>
 
@@ -270,7 +287,7 @@ export default function ChatPage() {
               size="icon"
               onClick={() => navigate('/knowledge')}
               title="Go to Knowledge Bases"
-              className="md:hidden h-9 w-9 rounded-xl border-border hover:bg-muted"
+              className="md:hidden h-8 w-8 rounded-lg border-border hover:bg-muted"
             >
               <Database className="h-4 w-4" />
             </Button>
@@ -456,9 +473,9 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* ─── SLIDE-IN HISTORY PANEL (HIDDEN ON MOBILE) ─── */}
+        {/* ─── SLIDE-IN HISTORY PANEL ─── */}
         {historyExpanded && (
-          <div className="hidden md:block absolute inset-y-0 left-0 w-80 border-r border-border/40 bg-card/95 backdrop-blur-sm z-30 animate-in slide-in-from-left-full duration-300 rounded-l-3xl">
+          <div className="absolute inset-y-0 left-0 w-80 border-r border-border/40 bg-card/95 backdrop-blur-sm z-30 animate-in slide-in-from-left-full duration-300 rounded-l-3xl">
 
             {/* ─── EDGE TOGGLE ARROW (RIGHT EDGE OF SIDEBAR - shown when sidebar is OPEN) ─── */}
             <button
