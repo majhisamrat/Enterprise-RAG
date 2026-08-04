@@ -408,10 +408,9 @@ export default function ChatPage() {
 
         {/* ─── INPUT AREA ─── */}
         <div className="border-t border-border/70 bg-muted/20 shrink-0">
-          {/* Input Box */}
           <div className="p-3 md:p-4 relative">
             <div className="max-w-5xl mx-auto relative">
-              <div className="relative rounded-2xl border border-border/80 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 shadow-lg p-3 md:p-4 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+              <div className="relative rounded-full border border-border/80 bg-card/60 shadow-lg px-4 md:px-5 py-2 md:py-2.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all flex items-center gap-3">
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -421,31 +420,22 @@ export default function ChatPage() {
                       ? `Ask about ${kbs?.find((k) => k.id === selectedKb)?.display_name}...`
                       : 'Ask anything across your knowledge bases...'
                   }
-                  className="min-h-[50px] md:min-h-[60px] max-h-[120px] md:max-h-[160px] border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-2 px-3 md:px-4 text-sm md:text-base font-medium placeholder:text-white/70 text-white"
+                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-2 px-0 text-sm md:text-base font-medium placeholder:text-muted-foreground text-foreground"
                   rows={1}
                 />
 
-                <div className="flex items-center justify-between px-2 md:px-3 pt-2 border-t border-blue-500/30">
-                  <span className="text-xs font-medium text-white hidden md:block">
-                    Press <kbd className="px-1.5 py-0.5 rounded bg-white/30 font-mono text-xs font-bold text-white">Enter</kbd> to send
-                  </span>
-
-                  <Button
-                    onClick={() => handleSend()}
-                    disabled={!input.trim() || chatMutation.isPending}
-                    size="default"
-                    className="gap-2 shadow-lg shadow-primary/25 px-3 md:px-5 h-8 md:h-9 font-bold text-xs md:text-sm rounded-xl ml-auto"
-                  >
-                    {chatMutation.isPending ? (
-                      <Loader2 className="h-3 md:h-4 w-3 md:w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <span className="hidden md:inline">Send</span>
-                        <Send className="h-3 md:h-4 w-3 md:w-4" />
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => handleSend()}
+                  disabled={!input.trim() || chatMutation.isPending}
+                  size="icon"
+                  className="gap-2 shadow-lg shadow-primary/25 h-8 md:h-9 w-8 md:w-9 font-bold rounded-full flex-shrink-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-90"
+                >
+                  {chatMutation.isPending ? (
+                    <Loader2 className="h-4 md:h-5 w-4 md:w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-4 md:h-5 w-4 md:w-5" />
+                  )}
+                </Button>
               </div>
             </div>
           </div>
