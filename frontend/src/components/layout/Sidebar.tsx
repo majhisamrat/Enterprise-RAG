@@ -27,9 +27,11 @@ const navItems = [
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
 ];
 
-export function Sidebar({ collapsed, onToggle }: { 
+export function Sidebar({ collapsed, onToggle, isDrawerOpen, onDrawerClose }: { 
   collapsed?: boolean; 
   onToggle?: () => void;
+  isDrawerOpen?: boolean;
+  onDrawerClose?: () => void;
 }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -45,6 +47,9 @@ export function Sidebar({ collapsed, onToggle }: {
     <aside
       className={cn(
         'fixed left-0 top-0 z-40 h-screen transition-all duration-300 ease-out glass-sidebar bg-white/90 backdrop-blur-2xl flex flex-col justify-between border-r border-sky-100 shadow-[8px_0_40px_-25px_rgba(10,50,100,.35)]',
+        // Mobile drawer
+        'md:flex',
+        isDrawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         isCollapsed ? 'w-[76px]' : 'w-72',
       )}
     >
@@ -92,6 +97,7 @@ export function Sidebar({ collapsed, onToggle }: {
                 key={item.to}
                 to={item.to}
                 end={item.to === '/'}
+                onClick={onDrawerClose}
                 className={cn(
                   'relative flex items-center gap-3.5 rounded-xl px-4 py-3 text-base font-semibold transition-all duration-200 group',
                   isActive

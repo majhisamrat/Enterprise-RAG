@@ -87,8 +87,12 @@ export default function LoginPage() {
                     placeholder="name@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    style={{ paddingLeft: '3.5rem' }}
-                    className="h-14 text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf]"
+                    style={{ 
+                      paddingLeft: '3.5rem',
+                      backgroundColor: '#e0f2fe !important',
+                      color: '#000000 !important',
+                    }}
+                    className="h-14 text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf] bg-sky-100 text-black placeholder:text-gray-600"
                     required
                   />
                 </div>
@@ -106,8 +110,13 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    style={{ paddingLeft: '3.5rem', paddingRight: '3.5rem' }}
-                    className="h-14 text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf]"
+                    style={{ 
+                      paddingLeft: '3.5rem', 
+                      paddingRight: '3.5rem',
+                      backgroundColor: '#e0f2fe !important',
+                      color: '#000000 !important',
+                    }}
+                    className="h-14 text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf] bg-sky-100 text-black placeholder:text-gray-600"
                     required
                   />
                   <button

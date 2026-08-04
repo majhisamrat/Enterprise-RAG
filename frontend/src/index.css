@@ -310,6 +310,61 @@
   background: radial-gradient(circle at 75% 18%, rgba(255,210,227,.88), transparent 26%), radial-gradient(circle at 22% 75%, rgba(87,196,255,.78), transparent 35%), linear-gradient(135deg, #e8f7ff, #b7dcff 50%, #809bf7);
 }
 
+/* ─── Input Text Selection Styling (Chat Card Only) ─── */
+.fixed.top-1/2.left-1/2 textarea::selection {
+  background: #FFD700;  /* Bright Gold/Yellow - Very Visible */
+  color: #1a1a1a;       /* Dark text for contrast */
+}
+
+.fixed.top-1/2.left-1/2 textarea::-moz-selection {
+  background: #FFD700;  /* Bright Gold/Yellow - Very Visible */
+  color: #1a1a1a;       /* Dark text for contrast */
+}
+
+/* ─── Login Page Input Autofill Styling ─── */
+/* Fix autofill background and text color for Login inputs */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #e0f2fe inset !important;
+  box-shadow: 0 0 0 30px #e0f2fe inset !important;
+}
+
+input:-webkit-autofill {
+  -webkit-text-fill-color: #000000 !important;
+}
+
+input:-webkit-autofill:hover {
+  -webkit-text-fill-color: #000000 !important;
+}
+
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #000000 !important;
+}
+
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #000000 !important;
+}
+
+/* Override focus styles on login inputs to keep sky blue background */
+#email:focus-visible,
+#password:focus-visible {
+  background-color: #e0f2fe !important;
+  color: #000000 !important;
+}
+
+#email,
+#password {
+  background-color: #e0f2fe !important;
+  color: #000000 !important;
+}
+
+#email::placeholder,
+#password::placeholder {
+  color: #666666 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }

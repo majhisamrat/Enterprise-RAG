@@ -297,15 +297,15 @@ export default function ChatPage() {
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Suggested Prompts
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
                     {promptSuggestions.map((suggestion, i) => (
                       <button
                         key={i}
                         onClick={() => handleSend(suggestion)}
-                        className="p-4 text-left rounded-xl border border-border/80 bg-card/60 hover:bg-muted hover:border-primary/40 transition-all duration-200 text-sm font-semibold text-muted-foreground hover:text-foreground group flex items-start justify-between gap-3 shadow-sm"
+                        className="p-5 text-left rounded-xl border border-border/80 bg-card/60 hover:bg-muted hover:border-primary/40 transition-all duration-200 text-base sm:text-lg font-semibold text-muted-foreground hover:text-foreground group flex items-start justify-between gap-3 shadow-sm"
                       >
                         <span className="leading-relaxed">{suggestion}</span>
-                        <ArrowUpRight className="h-4 w-4 shrink-0 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ArrowUpRight className="h-5 w-5 shrink-0 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
                     ))}
                   </div>
