@@ -46,7 +46,7 @@ export default function DashboardPage() {
       </PageHeader>
 
       {/* Metrics Row */}
-      <StaggerContainer className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <StaggerContainer className="grid gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {statCards.map((stat) => {
           const value = summary?.[stat.key as keyof typeof summary] ?? 0;
           const Icon = stat.icon;
@@ -93,7 +93,7 @@ export default function DashboardPage() {
             </Button>
           </Card>
         ) : (
-          <StaggerContainer className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          <StaggerContainer className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {data.knowledge_bases.map((kb) => (
               <StaggerItem key={kb.id}>
                 <Card

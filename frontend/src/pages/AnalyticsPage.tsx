@@ -231,7 +231,7 @@ export default function AnalyticsPage() {
 
 
       {/* Top Cards Row */}
-      <StaggerContainer className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <StaggerContainer className="grid gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
         <StaggerItem>
           <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
             <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
