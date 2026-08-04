@@ -144,7 +144,10 @@ export function Sidebar({ collapsed, onToggle, isDrawerOpen, onDrawerClose }: {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={toggleTheme}
+                onClick={() => {
+                  toggleTheme();
+                  if (isDrawerOpen) onDrawerClose?.();
+                }}
                 className="w-full h-10 rounded-xl"
               >
                 {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-700" />}
@@ -158,7 +161,10 @@ export function Sidebar({ collapsed, onToggle, isDrawerOpen, onDrawerClose }: {
           <Button
             variant="outline"
             size="sm"
-            onClick={toggleTheme}
+            onClick={() => {
+              toggleTheme();
+              if (isDrawerOpen) onDrawerClose?.();
+            }}
             className="w-full justify-between rounded-xl h-10 text-sm font-bold px-3.5 border-border bg-card/80 hover:bg-muted shadow-sm"
           >
             <span className="flex items-center gap-2.5">

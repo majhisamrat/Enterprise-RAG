@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Brain, Check, ChevronRight, FileText, Globe2, Menu, MessageSquare, Play, Search, ShieldCheck, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowRight, Brain, Check, ChevronRight, FileText, Globe2, MessageSquare, Play, Search, ShieldCheck, Sparkles, Wand2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const proof = ['Private by design', 'Sources included', 'Ready in seconds'];
@@ -28,7 +28,6 @@ export default function LandingPage() {
             <button className="hidden items-center gap-2 text-base font-bold text-[#315281] sm:flex"><Globe2 className="h-5 w-5" />English</button>
             <button onClick={() => navigate('/login')} className="hidden text-base font-bold text-[#082c67] sm:block">Log in</button>
             <button onClick={start} className="rounded-full bg-[#1246a7] px-7 py-4 text-base font-bold text-white shadow-lg shadow-blue-800/20 transition hover:-translate-y-0.5 hover:bg-[#0d398a]">Start for free</button>
-            <Menu className="h-6 w-6 md:hidden" />
           </div>
         </div>
       </header>
