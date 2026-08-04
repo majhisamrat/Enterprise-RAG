@@ -208,7 +208,7 @@ export default function ChatPage() {
   return (
     <div className="flex-1 w-full h-full flex flex-col md:items-center md:justify-center md:py-2">
       {/* ─── RESPONSIVE CHAT CONTAINER ─── */}
-      <div className="w-full md:max-w-6xl md:h-[90vh] md:max-h-[1200px] md:min-h-[800px] flex flex-col bg-card/90 backdrop-blur-2xl md:border md:border-border/80 md:rounded-3xl md:shadow-2xl md:overflow-hidden md:glow-sm z-10 h-screen md:fixed md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2">
+      <div className="w-full md:max-w-6xl md:h-[90vh] md:max-h-[1200px] md:min-h-[800px] flex flex-col bg-card/90 backdrop-blur-2xl md:border md:border-border/80 md:rounded-3xl md:shadow-2xl md:overflow-hidden md:glow-sm z-10 h-[85dvh] md:fixed md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 rounded-2xl md:rounded-3xl overflow-hidden">
 
         {/* ─── EDGE TOGGLE ARROW (LEFT EDGE OF FIXED CARD) - REMOVED ─── */}
 
@@ -321,7 +321,7 @@ export default function ChatPage() {
         </div>
 
         {/* ─── MESSAGES AREA ─── */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8 lg:p-10 bg-background/50">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 bg-background/50">
           <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 h-full">
             {messages.length === 0 ? (
               <FadeIn className="h-full flex flex-col justify-center items-center py-12 space-y-6 md:space-y-8 text-center">
