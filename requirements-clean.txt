@@ -1,0 +1,116 @@
+# ============================================
+# Enterprise RAG - Production Requirements
+# Version: 1.0
+# Date: August 6, 2026
+# ============================================
+
+# Core Web Framework
+fastapi==0.135.3
+starlette==0.49.1
+uvicorn==0.44.0
+python-multipart==0.0.22
+aiofiles==25.1.0
+httpx==0.28.1
+requests==2.32.5
+
+# Database & Migrations
+sqlalchemy==2.0.49
+asyncpg==0.31.0
+psycopg2-binary==2.9.12
+alembic==1.18.4
+aiosqlite==0.22.1
+
+# Validation & Configuration
+pydantic==2.12.5
+pydantic-settings==2.13.1
+python-dotenv==1.2.2
+email-validator==2.3.0
+
+# Security & Authentication
+python-jose==3.5.0
+PyJWT==2.13.0
+bcrypt==4.0.1
+cryptography==46.0.5
+google-auth==2.49.0
+passlib==1.7.4
+argon2-cffi==25.1.0
+
+# LLM Integration & RAG
+groq==0.37.1
+google-generativeai==0.8.6
+openai==2.36.0
+langchain==1.3.0
+langchain-core==1.4.0
+langchain-groq==1.1.2
+langgraph==1.2.0
+mem0ai==2.0.2
+tenacity==9.1.2
+backoff==2.2.1
+
+# Embeddings & Transformers
+sentence-transformers==5.4.1
+transformers==5.8.0
+huggingface_hub==1.14.0
+torch==2.8.0
+
+# Vector Store & Search
+qdrant-client==1.18.0
+faiss-cpu==1.13.2
+
+# Caching & Message Broker
+redis==7.4.0
+aioredis==2.0.1
+
+# File Processing & Parsing
+python-docx==1.2.0
+openpyxl==3.1.5
+lxml==6.0.2
+pymupdf==1.28.0
+pdf2image==1.17.0
+beautifulsoup4==4.13.5
+
+# OCR & Image Processing
+easyocr==1.7.2
+pillow==11.3.0
+opencv-contrib-python==4.10.0.84
+
+# Data Format & Encoding
+orjson==3.11.9
+ormsgpack==1.12.2
+chardet==7.4.3
+python-bidi==0.6.11
+
+# Utilities & Helpers
+loguru==0.7.3
+click==8.3.0
+typer==0.25.1
+pydantic-json-schema==0.3.0
+arrow==1.3.0
+python-dateutil==2.9.0.post0
+
+# Core Dependencies (keep for transitive deps)
+certifi==2025.8.3
+urllib3==2.5.0
+typing-extensions==4.15.0
+
+# Optional: Email Support (uncomment if using email features)
+# aiosmtplib==3.0.1
+
+# Optional: Elasticsearch (uncomment if using ES for sparse retrieval)
+# elasticsearch==8.15.0
+
+# Optional: AWS S3 (uncomment if using S3 storage backend)
+# boto3==1.34.0
+# botocore==1.34.0
+
+# Optional: Azure Storage (uncomment if using Azure backend)
+# azure-storage-blob==12.20.0
+
+# Optional: Google Cloud Storage (uncomment if using GCS backend)
+# google-cloud-storage==2.15.0
+
+# Optional: Monitoring (uncomment if setting up monitoring)
+# prometheus-client==0.23.1
+
+# Optional: Error Tracking with Sentry (uncomment if using Sentry)
+# sentry-sdk==2.20.0
