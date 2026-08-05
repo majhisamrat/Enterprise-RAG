@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -41,13 +42,75 @@ export default function RegisterPage() {
         organization_name: form.organization_name || undefined,
         department: form.department || undefined,
       });
-      navigate('/');
+      navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Google Sign-Up handler
+  const handleGoogleSignUp = useGoogleLogin({
+    onSuccess: async (codeResponse) => {
+      setError('');
+      setIsLoading(true);
+      try {
+        // Get user info from Google using the access token
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { 'Authorization': `Bearer ${codeResponse.access_token}` },
+        });
+        
+        if (!userInfoResponse.ok) {
+          throw new Error('Failed to get Google user info');
+        }
+
+        const userInfo = await userInfoResponse.json();
+
+        // Send user info to backend for authentication/registration
+        const backendResponse = await fetch('/api/v1/auth/google-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            access_token: codeResponse.access_token,
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture,
+            organization_name: form.organization_name || 'Default Enterprise',
+          }),
+        });
+
+        if (!backendResponse.ok) {
+          const errorData = await backendResponse.json();
+          throw new Error(errorData.detail || 'Google authentication failed');
+        }
+
+        const data = await backendResponse.json();
+        
+        // Store tokens
+        localStorage.setItem('access_token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
+
+        // Small delay to ensure localStorage is written before page reload
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Google Sign-Up failed');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => {
+      setError('Google Sign-Up failed. Please try again.');
+      setIsLoading(false);
+    },
+    flow: 'implicit',
+  });
 
 
 
@@ -82,6 +145,26 @@ export default function RegisterPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+            {/* Google Sign-Up Button */}
+            <button 
+              type="button" 
+              onClick={() => handleGoogleSignUp()} 
+              disabled={isLoading}
+              className="flex h-12 md:h-14 w-full items-center justify-center gap-2 md:gap-3 rounded-full bg-[#1246b8] text-base md:text-lg font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-[#0e3b99] disabled:opacity-50 disabled:cursor-not-allowed mb-4 md:mb-6"
+            >
+              <span className="grid h-5 md:h-6 w-5 md:w-6 place-items-center rounded-full bg-white text-sm md:text-base font-black text-[#1246b8]">G</span>
+              {isLoading ? 'Creating account...' : 'Sign up with Google'}
+            </button>
+
+            <div className="relative mb-4 md:mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border/40"></span>
+              </div>
+              <div className="relative flex justify-center text-xs md:text-sm">
+                <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
+              </div>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-5">

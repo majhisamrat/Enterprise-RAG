@@ -19,11 +19,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
+    console.log('AuthContext mounted, token:', !!token, token?.substring(0, 20) + '...');
     if (token) {
       authApi
         .getMe()
-        .then(setUser)
-        .catch(() => localStorage.removeItem('access_token'))
+        .then((profile) => {
+          console.log('Got user profile:', profile);
+          setUser(profile);
+        })
+        .catch((err) => {
+          console.error('Failed to get profile:', err);
+          localStorage.removeItem('access_token');
+        })
         .finally(() => setIsLoading(false));
     } else {
       setIsLoading(false);

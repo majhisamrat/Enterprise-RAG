@@ -28,6 +28,7 @@ class BaseRepository(Generic[ModelType]):
         self.session.add(instance)
         await self.session.flush()
         await self.session.refresh(instance)
+        await self.session.commit()
         return instance
 
     async def update(self, instance: ModelType) -> ModelType:

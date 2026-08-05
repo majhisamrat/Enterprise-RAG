@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +21,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -31,7 +32,7 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      navigate('/');
+      navigate('/dashboard', { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
@@ -39,9 +40,70 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    setError('Google sign-in will be available when OAuth is configured.');
-  };
+  // Google Sign-In handler
+  const handleGoogleSignIn = useGoogleLogin({
+    onSuccess: async (codeResponse) => {
+      setError('');
+      setIsLoading(true);
+      try {
+        // Get user info from Google using the access token
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { 'Authorization': `Bearer ${codeResponse.access_token}` },
+        });
+        
+        if (!userInfoResponse.ok) {
+          throw new Error('Failed to get Google user info');
+        }
+
+        const userInfo = await userInfoResponse.json();
+
+        // Send user info to backend for authentication
+        const backendResponse = await fetch('/api/v1/auth/google-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            access_token: codeResponse.access_token,
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture,
+          }),
+        });
+
+        if (!backendResponse.ok) {
+          const errorData = await backendResponse.json();
+          throw new Error(errorData.detail || 'Google authentication failed');
+        }
+
+        const data = await backendResponse.json();
+        
+        // Store tokens
+        localStorage.setItem('access_token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh_token', data.refresh_token);
+        }
+
+        // Verify token is stored
+        const storedToken = localStorage.getItem('access_token');
+        console.log('Token stored:', !!storedToken, storedToken?.substring(0, 20) + '...');
+
+        // Small delay to ensure localStorage is written before page reload
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 100);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Google Sign-In failed');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => {
+      setError('Google Sign-In failed. Please try again.');
+      setIsLoading(false);
+    },
+    flow: 'implicit',
+  });
 
 
   return (
@@ -77,9 +139,9 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            <button type="button" onClick={handleGoogleSignIn} className="flex h-12 md:h-14 w-full items-center justify-center gap-2 md:gap-3 rounded-full bg-[#1246b8] text-base md:text-lg font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-[#0e3b99]">
+            <button type="button" onClick={() => handleGoogleSignIn()} disabled={isLoading} className="flex h-12 md:h-14 w-full items-center justify-center gap-2 md:gap-3 rounded-full bg-[#1246b8] text-base md:text-lg font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-[#0e3b99] disabled:opacity-50 disabled:cursor-not-allowed">
               <span className="grid h-5 md:h-6 w-5 md:w-6 place-items-center rounded-full bg-white text-sm md:text-base font-black text-[#1246b8]">G</span>
-              Continue with Google
+              {isLoading ? 'Signing in...' : 'Continue with Google'}
             </button>
             <div className="my-5 md:my-7 flex items-center gap-3 text-xs md:text-sm font-medium text-[#4f6683]"><span className="h-px flex-1 bg-sky-200/80" />or<span className="h-px flex-1 bg-sky-200/80" /></div>
 

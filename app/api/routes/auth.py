@@ -14,6 +14,7 @@ from app.db.session import get_db
 from app.storage.redis_client import redis_manager
 from app.utils.email_service import OTPService
 from app.utils.google_auth import verify_google_id_token
+from app.utils.logger import logger
 from app.utils.security import create_access_token, create_refresh_token, hash_password, verify_password
 
 PUBLIC_DOMAINS = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "protonmail.com", "mail.com", "gmx.com", "zoho.com"}
@@ -60,6 +61,16 @@ class VerifyOTPRequest(BaseModel):
 class GoogleAuthRequest(BaseModel):
     id_token: str
     organization_name: Optional[str] = "Default Enterprise"
+
+
+class GoogleLoginRequest(BaseModel):
+    """Request body for Google OAuth login with access token"""
+    access_token: str
+    email: str
+    name: str
+    picture: Optional[str] = None
+    organization_name: Optional[str] = "Default Enterprise"
+    department: Optional[str] = None
     department: Optional[str] = "General"
 
 
@@ -162,6 +173,86 @@ async def google_auth(req: GoogleAuthRequest, db: AsyncSession = Depends(get_db)
         expires_at=datetime.now(timezone.utc),
     )
     db.add(user_session)
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=str(user.id),
+        organization_id=str(user.organization_id),
+        email_verified=user.email_verified,
+    )
+
+
+@router.post("/google-login", response_model=TokenResponse)
+async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
+    """Authenticate or register user using Google OAuth access token (from frontend)."""
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(req.email.lower())
+
+    if not user:
+        logger.info(f"No existing user found for {req.email.lower()}, creating new user")
+        # New user - create organization and user
+        org_domain = await _resolve_org_domain(req.email, db)
+        org = Organization(
+            name=req.organization_name or f"{req.name}'s Org",
+            domain=org_domain,
+        )
+        db.add(org)
+        await db.flush()
+        await db.commit()
+        logger.info(f"Organization created with ID {org.id}")
+
+        user = User(
+            organization_id=org.id,
+            name=req.name,
+            email=req.email.lower(),
+            password_hash=hash_password(uuid.uuid4().hex),
+            auth_provider="google",
+            google_sub=req.access_token[:50],
+            email_verified=True,
+            avatar=req.picture,
+            department=req.department or "General",
+            status="active",
+        )
+        # Use repository create method which handles commit properly
+        user = await user_repo.create(user)
+        logger.info(f"New Google user created: {req.email} with ID {user.id}")
+        
+        # Verify user was created by re-querying in fresh session
+        verify_user = await user_repo.get_by_email(req.email.lower())
+        logger.info(f"Verified user exists in DB: {verify_user.id if verify_user else 'NOT FOUND'}")
+    else:
+        # Existing user - update via raw SQL
+        from sqlalchemy import update as sql_update
+        user_id = user.id
+        
+        logger.info(f"Found existing user: {req.email} with ID {user_id}")
+        
+        # Update the user in database directly
+        stmt = sql_update(User).where(User.id == user_id).values(
+            auth_provider="google",
+            email_verified=True,
+            last_login=datetime.now(timezone.utc),
+            avatar=req.picture if req.picture else user.avatar,
+        )
+        await db.execute(stmt)
+        await db.commit()
+        logger.info(f"Google user logged in: {req.email} with ID {user_id}")
+
+    # Ensure user object has correct values
+    logger.info(f"Creating token for user ID: {user.id}, org ID: {user.organization_id}")
+    
+    # Create tokens
+    access_token = create_access_token({"sub": str(user.id), "org": str(user.organization_id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    user_session = UserSession(
+        user_id=user.id,
+        refresh_token=refresh_token,
+        expires_at=datetime.now(timezone.utc),
+    )
+    db.add(user_session)
+    await db.commit()
 
     return TokenResponse(
         access_token=access_token,
