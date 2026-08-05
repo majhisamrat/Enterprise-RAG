@@ -117,8 +117,9 @@ export default function KnowledgeBasesPage() {
           action={{ label: 'Create Knowledge Base', onClick: () => setOpen(true) }}
         />
       ) : (
-        <StaggerContainer className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {kbs.map((kb) => (
+        <div className="w-full px-4 sm:px-6 md:px-0">
+          <StaggerContainer className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {kbs.map((kb) => (
             <StaggerItem key={kb.id}>
               <Card
                 className="group cursor-pointer hover:border-primary/50 hover:shadow-xl transition-all duration-300 relative overflow-hidden h-full flex flex-col justify-between p-6 glass-card border border-border"
@@ -165,6 +166,7 @@ export default function KnowledgeBasesPage() {
             </StaggerItem>
           ))}
         </StaggerContainer>
+        </div>
       )}
     </div>
   );

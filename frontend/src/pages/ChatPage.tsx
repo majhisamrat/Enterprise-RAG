@@ -354,7 +354,7 @@ export default function ChatPage() {
         </div>
 
         {/* ─── MESSAGES AREA ─── */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 bg-background/50">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 bg-background/50 pt-6 md:pt-8 lg:pt-10">
           <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 h-full">
             {/* Rate Limit Alert */}
             {rateLimitInfo && (
