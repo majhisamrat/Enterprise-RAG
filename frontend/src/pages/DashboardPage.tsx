@@ -86,10 +86,11 @@ export default function DashboardPage() {
         </div>
 
         {(!data?.knowledge_bases || data.knowledge_bases.length === 0) ? (
-          <Card className="p-16 text-center border-dashed border-2 rounded-3xl">
-            <p className="text-lg text-muted-foreground font-semibold">No active knowledge bases found.</p>
-            <Button variant="outline" size="lg" onClick={() => navigate('/knowledge')} className="mt-6 gap-3 text-lg font-black px-8 h-14">
-              <Plus className="h-6 w-6" /> Create First Knowledge Base
+          <Card className="p-8 md:p-16 text-center border-dashed border-2 rounded-3xl">
+            <p className="text-base md:text-lg text-muted-foreground font-semibold">No active knowledge bases found.</p>
+            <Button variant="outline" onClick={() => navigate('/knowledge')} className="mt-6 gap-2 md:gap-3 text-sm md:text-lg font-black px-4 md:px-8 h-10 md:h-14 rounded-lg md:rounded-2xl w-full md:w-auto">
+              <Plus className="h-5 md:h-6 w-5 md:w-6" /> 
+              <span>Create First Knowledge Base</span>
             </Button>
           </Card>
         ) : (
