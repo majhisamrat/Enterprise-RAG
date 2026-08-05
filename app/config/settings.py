@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     MAX_OUTPUT_TOKENS: int = 2048
     MAX_RETRIES: int = 3
 
+    # Mem0 Long-Term Memory (Optional)
+    MEM0_API_KEY: str = ""
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
