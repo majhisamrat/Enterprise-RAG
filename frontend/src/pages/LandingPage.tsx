@@ -28,8 +28,8 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-2 sm:gap-4">
             <button className="hidden items-center gap-2 text-base font-bold text-[#315281] sm:flex"><Globe2 className="h-5 w-5" />English</button>
-            <button onClick={() => navigate('/login')} className="hidden text-base font-bold text-[#082c67] sm:block">Log in</button>
-            <button onClick={start} className="rounded-full bg-[#1246a7] px-7 py-4 text-base font-bold text-white shadow-lg shadow-blue-800/20 transition hover:-translate-y-0.5 hover:bg-[#0d398a]">Start for free</button>
+            <button onClick={() => navigate('/login')} className="text-sm sm:text-base font-bold text-[#082c67]">Log in</button>
+            <button onClick={start} className="rounded-full bg-[#1246a7] px-4 sm:px-7 py-2 sm:py-4 text-sm sm:text-base font-bold text-white shadow-lg shadow-blue-800/20 transition hover:-translate-y-0.5 hover:bg-[#0d398a]">Start for free</button>
           </div>
         </div>
       </header>
