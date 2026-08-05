@@ -15,9 +15,11 @@ import {
   Moon,
   Menu,
   X,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { usePWA } from '@/context/PWAContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -37,6 +39,7 @@ export function Sidebar({ collapsed, onToggle, isDrawerOpen, onDrawerClose }: {
 }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { isInstalled, promptInstall } = usePWA();
   const location = useLocation();
   const [internalCollapsed, setInternalCollapsed] = useState(false);
 
@@ -137,6 +140,41 @@ export function Sidebar({ collapsed, onToggle, isDrawerOpen, onDrawerClose }: {
 
       {/* Bottom Actions & User Section */}
       <div className="p-4 border-t border-border space-y-3">
+        {/* Get App Button - only show if not installed */}
+        {!isInstalled && (
+          isCollapsed ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    promptInstall();
+                    if (isDrawerOpen) onDrawerClose?.();
+                  }}
+                  className="w-full h-10 rounded-xl text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Install App</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                promptInstall();
+                if (isDrawerOpen) onDrawerClose?.();
+              }}
+              className="w-full justify-start gap-2.5 rounded-xl text-sm font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors h-10"
+            >
+              <Download className="h-4 w-4" />
+              Get App
+            </Button>
+          )
+        )}
+
         {/* Theme Toggle Button */}
         {isCollapsed ? (
           <Tooltip delayDuration={0}>

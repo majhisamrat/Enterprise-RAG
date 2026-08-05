@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Brain, Check, ChevronRight, FileText, Globe2, MessageSquare, Play, Search, ShieldCheck, Sparkles, Wand2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { DownloadAppSection } from '@/components/shared/DownloadAppSection';
 
 const proof = ['Private by design', 'Sources included', 'Ready in seconds'];
 const trusted = ['NORTHSTAR', 'VANTAGE', 'MOTION', 'VENTURE', 'LUMIN', 'KITE'];
@@ -23,6 +24,7 @@ export default function LandingPage() {
             <a href="#product" className="transition hover:text-[#0d46a6]">Product</a>
             <a href="#how-it-works" className="transition hover:text-[#0d46a6]">How it works</a>
             <a href="#security" className="transition hover:text-[#0d46a6]">Security</a>
+            <a href="#download-app" className="transition hover:text-[#0d46a6]">Get App</a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-4">
             <button className="hidden items-center gap-2 text-base font-bold text-[#315281] sm:flex"><Globe2 className="h-5 w-5" />English</button>
@@ -68,6 +70,8 @@ export default function LandingPage() {
         <section id="how-it-works" className="bg-[#082d69] px-5 py-24 text-white lg:py-32"><div className="mx-auto grid max-w-7xl gap-14 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-xs font-bold uppercase tracking-[.17em] text-sky-300">From raw files to real clarity</p><h2 className="font-display mt-4 text-4xl font-black leading-tight sm:text-5xl">Made for the way your team already works.</h2><p className="mt-6 max-w-md text-lg leading-8 text-blue-200">Atlas keeps the path from upload to answer remarkably simple, without sacrificing trust or control.</p><button onClick={start} className="mt-8 inline-flex items-center gap-2 font-bold text-sky-200 hover:text-white">Start your workspace <ChevronRight className="h-4 w-4" /></button></div><div className="grid gap-4 sm:grid-cols-3">{[['01','Connect','Add the material your team trusts.'],['02','Understand','Atlas indexes and organizes every detail.'],['03','Move','Get cited answers, faster decisions.']].map(([n,t,d]) => <div key={n} className="rounded-[1.75rem] border border-white/15 bg-white/10 p-6 backdrop-blur"><p className="text-sm font-black text-pink-300">{n}</p><h3 className="mt-12 text-2xl font-black">{t}</h3><p className="mt-3 text-sm leading-6 text-blue-200">{d}</p></div>)}</div></div></section>
 
         <section id="security" className="relative overflow-hidden px-5 py-24"><div className="aurora-panel absolute inset-x-0 bottom-0 h-3/4 opacity-60" /><div className="relative mx-auto max-w-5xl rounded-[2rem] border border-white bg-white/80 p-8 text-center shadow-xl shadow-blue-950/5 backdrop-blur sm:p-14"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#dff4ff] text-[#1452a0]"><ShieldCheck className="h-6 w-6" /></div><p className="app-kicker mt-5">Enterprise-ready from day one</p><h2 className="font-display mx-auto mt-3 max-w-2xl text-4xl font-black text-[#06285f] sm:text-5xl">Give your team the confidence to explore freely.</h2><p className="mx-auto mt-5 max-w-xl text-[#526b91]">Role-aware access, secure collaboration, and answerable sources are built into every Atlas workspace.</p><button onClick={start} className="mt-8 rounded-full bg-[#1246a7] px-6 py-3.5 font-bold text-white shadow-lg shadow-blue-900/20">Create your workspace</button></div></section>
+
+        <DownloadAppSection />
       </main>
       <footer className="border-t border-sky-100 bg-white px-5 py-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 text-sm text-[#6680a6] sm:flex-row"><span className="font-display text-lg font-black text-[#082c67]">ATLAS</span><span>© 2026 Atlas Intelligence. Built for better questions.</span></div></footer>
     </div>

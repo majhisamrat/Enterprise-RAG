@@ -4,6 +4,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { DrawerProvider } from '@/context/DrawerContext';
+import { PWAProvider } from '@/context/PWAContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from 'sonner';
 import { router } from '@/routes';
@@ -30,12 +31,14 @@ export default function App() {
       <GoogleOAuthProvider clientId={googleClientId || ''}>
         <ThemeProvider>
           <AuthProvider>
-            <DrawerProvider>
-              <TooltipProvider>
-                <RouterProvider router={router} />
-                <Toaster position="top-right" richColors closeButton />
-              </TooltipProvider>
-            </DrawerProvider>
+            <PWAProvider>
+              <DrawerProvider>
+                <TooltipProvider>
+                  <RouterProvider router={router} />
+                  <Toaster position="top-right" richColors closeButton />
+                </TooltipProvider>
+              </DrawerProvider>
+            </PWAProvider>
           </AuthProvider>
         </ThemeProvider>
       </GoogleOAuthProvider>

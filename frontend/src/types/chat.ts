@@ -34,6 +34,12 @@ export interface ChatResponse {
   knowledge_base_id: string | null;
   sources: ChatSource[];
   metadata: ChatMetadata;
+  rate_limit_info?: {
+    is_allowed: boolean;
+    message_count: number;
+    max_messages: number;
+    reset_time: string;
+  };
 }
 
 export interface ChatMessageDisplay {
