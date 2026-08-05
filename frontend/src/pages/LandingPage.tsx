@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Brain, Check, ChevronRight, FileText, Globe2, MessageSquare, Play, Search, ShieldCheck, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowRight, Brain, Check, ChevronRight, FileText, Globe2, MessageSquare, Play, Search, ShieldCheck, Sparkles, Wand2, Menu, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { DownloadAppSection } from '@/components/shared/DownloadAppSection';
 
@@ -10,7 +11,10 @@ const trusted = ['NORTHSTAR', 'VANTAGE', 'MOTION', 'VENTURE', 'LUMIN', 'KITE'];
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const start = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+
+  const closeMenu = () => setMobileMenuOpen(false);
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#f9fcff] text-[#082c67]">
@@ -20,18 +24,35 @@ export default function LandingPage() {
             <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#103d88] text-white shadow-lg shadow-blue-950/15"><Brain className="h-5 w-5" /></span>
             <span className="brand-atlas text-3xl leading-none">ATLAS</span>
           </button>
+          
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-10 text-base font-bold text-[#315281] lg:flex">
             <a href="#product" className="transition hover:text-[#0d46a6]">Product</a>
             <a href="#how-it-works" className="transition hover:text-[#0d46a6]">How it works</a>
             <a href="#security" className="transition hover:text-[#0d46a6]">Security</a>
             <a href="#download-app" className="transition hover:text-[#0d46a6]">Get App</a>
           </nav>
+          
           <div className="flex items-center gap-2 sm:gap-4">
             <button className="hidden items-center gap-2 text-base font-bold text-[#315281] sm:flex"><Globe2 className="h-5 w-5" />English</button>
-            <button onClick={() => navigate('/login')} className="text-sm sm:text-base font-bold text-[#082c67]">Log in</button>
+            <button onClick={() => navigate('/login')} className="hidden sm:block text-sm sm:text-base font-bold text-[#082c67]">Log in</button>
             <button onClick={start} className="rounded-full bg-[#1246a7] px-4 sm:px-7 py-2 sm:py-4 text-sm sm:text-base font-bold text-white shadow-lg shadow-blue-800/20 transition hover:-translate-y-0.5 hover:bg-[#0d398a]">Start for free</button>
+            
+            {/* Mobile menu button */}
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden ml-2 text-[#082c67]">
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
           </div>
         </div>
+        
+        {/* Mobile menu dropdown */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden border-t border-sky-100 bg-white/95 backdrop-blur-lg px-6 py-4 space-y-3">
+            <a href="#product" onClick={closeMenu} className="block py-2 text-base font-bold text-[#315281] hover:text-[#0d46a6] transition">Product</a>
+            <a href="#how-it-works" onClick={closeMenu} className="block py-2 text-base font-bold text-[#315281] hover:text-[#0d46a6] transition">How it works</a>
+            <a href="#security" onClick={closeMenu} className="block py-2 text-base font-bold text-[#315281] hover:text-[#0d46a6] transition">Security</a>
+            <a href="#download-app" onClick={closeMenu} className="block py-2 text-base font-bold text-[#1246a7] hover:text-[#0d398a] transition">Get App</a>
+          </div>
+        )}
       </header>
 
       <main>

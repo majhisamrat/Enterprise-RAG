@@ -32,10 +32,6 @@ export function DownloadAppSection() {
     );
   }
 
-  if (!isInstallPromptAvailable) {
-    return null;
-  }
-
   return (
     <section id="download-app" className="relative overflow-hidden px-5 py-24 lg:py-32 scroll-mt-24">
       <div className="aurora-panel absolute inset-x-0 bottom-0 h-3/4 opacity-60" />
@@ -48,10 +44,10 @@ export function DownloadAppSection() {
         <p className="mx-auto mt-5 max-w-xl text-[#526b91]">Access Atlas from your home screen and use it offline. Works on Android and desktop browsers.</p>
         <Button
           onClick={handleInstall}
-          disabled={isInstalling}
+          disabled={isInstalling || !isInstallPromptAvailable}
           className="mt-8 rounded-full bg-[#1246a7] px-6 py-3.5 font-bold text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d398a] disabled:opacity-60"
         >
-          {isInstalling ? 'Installing...' : 'Install App'}
+          {isInstalling ? 'Installing...' : !isInstallPromptAvailable ? 'Coming Soon' : 'Install App'}
         </Button>
       </div>
     </section>
