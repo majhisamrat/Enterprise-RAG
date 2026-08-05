@@ -116,7 +116,7 @@ export default function LoginPage() {
       </section>
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#8bd0f7_0%,#dff3ff_43%,#ffffff_100%)] p-4 sm:p-6 md:p-10">
         <div className="absolute -right-28 -top-28 h-96 w-96 rounded-full bg-sky-100/60 blur-3xl" /><div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-white/80 blur-3xl" />
-      <ScaleIn className="relative z-10 w-full max-w-sm">
+      <ScaleIn className="relative z-10 w-full max-w-sm md:max-w-md lg:max-w-lg">
         {/* Logo and Name - Top Left (Mobile only) */}
         <Link to="/landing" className="absolute -top-16 left-0 mb-4 flex items-center gap-2 md:hidden">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#103d88] text-white">
@@ -129,7 +129,7 @@ export default function LoginPage() {
           <h1 className="font-display text-3xl md:text-5xl font-black text-[#06285f]">Sign in</h1>
           <p className="text-sm md:text-lg text-[#365c89]">Access your Atlas workspace.</p>
         </div>
-        <Card className="border border-white/70 bg-white/72 p-5 md:p-8 shadow-[0_24px_60px_-35px_rgba(11,53,111,.30)] backdrop-blur sm:p-8 rounded-[1.8rem]">
+        <Card className="border border-white/70 bg-white/72 p-5 md:p-8 lg:p-10 shadow-[0_24px_60px_-35px_rgba(11,53,111,.30)] backdrop-blur sm:p-8 rounded-[1.8rem]">
           <CardHeader className="sr-only"><CardTitle>Sign in</CardTitle><CardDescription>Enter your credentials</CardDescription></CardHeader>
 
           <CardContent className="p-0 pt-6">
