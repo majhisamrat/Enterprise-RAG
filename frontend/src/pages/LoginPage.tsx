@@ -55,7 +55,14 @@ export default function LoginPage() {
       <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#8bd0f7_0%,#dff3ff_43%,#ffffff_100%)] p-4 sm:p-6 md:p-10">
         <div className="absolute -right-28 -top-28 h-96 w-96 rounded-full bg-sky-100/60 blur-3xl" /><div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-white/80 blur-3xl" />
       <ScaleIn className="relative z-10 w-full max-w-sm">
-        <Link to="/landing" className="mb-8 flex items-center gap-3 lg:hidden"><span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#103d88] text-white"><Brain className="h-5 w-5" /></span><span className="brand-atlas text-2xl leading-none text-[#082c67]">ATLAS</span></Link>
+        {/* Logo and Name - Top Left (Mobile only) */}
+        <Link to="/landing" className="absolute -top-16 left-0 mb-4 flex items-center gap-2 md:hidden">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#103d88] text-white">
+            <Brain className="h-4 w-4" />
+          </span>
+          <span className="brand-atlas text-xl leading-none text-[#082c67]">ATLAS</span>
+        </Link>
+        
         <div className="mb-6 space-y-1.5">
           <h1 className="font-display text-3xl md:text-5xl font-black text-[#06285f]">Sign in</h1>
           <p className="text-sm md:text-lg text-[#365c89]">Access your Atlas workspace.</p>
