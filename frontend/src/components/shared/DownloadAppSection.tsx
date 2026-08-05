@@ -44,11 +44,14 @@ export function DownloadAppSection() {
         <p className="mx-auto mt-5 max-w-xl text-[#526b91]">Access Atlas from your home screen and use it offline. Works on Android and desktop browsers.</p>
         <Button
           onClick={handleInstall}
-          disabled={isInstalling || !isInstallPromptAvailable}
+          disabled={isInstalling}
           className="mt-8 rounded-full bg-[#1246a7] px-6 py-3.5 font-bold text-white shadow-lg shadow-blue-900/20 hover:bg-[#0d398a] disabled:opacity-60"
         >
-          {isInstalling ? 'Installing...' : !isInstallPromptAvailable ? 'Coming Soon' : 'Install App'}
+          {isInstalling ? 'Installing...' : 'Download App'}
         </Button>
+        {!isInstallPromptAvailable && (
+          <p className="mt-4 text-sm text-[#526b91]">Install option available on supported browsers (Chrome, Edge, Firefox on Android)</p>
+        )}
       </div>
     </section>
   );
