@@ -208,7 +208,7 @@ export default function ChatPage() {
   return (
     <div className="flex-1 w-full h-full flex flex-col md:items-center md:justify-center md:py-2">
       {/* ─── RESPONSIVE CHAT CONTAINER ─── */}
-      <div className="w-full md:max-w-6xl md:h-[90vh] md:max-h-[1200px] md:min-h-[800px] flex flex-col bg-card/90 backdrop-blur-2xl md:border md:border-border/80 md:rounded-3xl md:shadow-2xl md:overflow-hidden md:glow-sm z-10 h-[85dvh] md:fixed md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 rounded-2xl md:rounded-3xl overflow-hidden">
+      <div className="w-full md:max-w-6xl md:h-[90vh] md:max-h-[1200px] md:min-h-[800px] flex flex-col bg-card/90 backdrop-blur-2xl md:border md:border-border/80 md:rounded-3xl md:shadow-2xl md:overflow-hidden md:glow-sm z-10 h-[85dvh] lg:fixed lg:top-1/2 lg:left-1/2 lg:transform lg:-translate-x-1/2 lg:-translate-y-1/2 rounded-2xl md:rounded-3xl overflow-hidden">
 
         {/* ─── EDGE TOGGLE ARROW (LEFT EDGE OF FIXED CARD) - REMOVED ─── */}
 

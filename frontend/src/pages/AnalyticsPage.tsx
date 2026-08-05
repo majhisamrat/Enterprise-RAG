@@ -306,7 +306,7 @@ export default function AnalyticsPage() {
       </StaggerContainer>
 
       {/* Breakdown Section */}
-      <FadeIn delay={0.2} className="grid gap-8 md:grid-cols-2">
+      <FadeIn delay={0.2} className="grid gap-8 grid-cols-1">
         {/* Query Performance Card */}
         <Card className="p-8 glass-card border border-border shadow-lg">
           <CardHeader className="p-0 pb-6">
@@ -316,28 +316,25 @@ export default function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 space-y-6">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
                 <p className="text-xs uppercase font-extrabold text-muted-foreground">p50 Latency</p>
-                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(queryMetrics?.p50_latency_ms ?? 0)}</p>
+                <p className="text-2xl font-black mt-2 text-foreground">{formatMs(queryMetrics?.p50_latency_ms ?? 0)}</p>
               </div>
               <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
                 <p className="text-xs uppercase font-extrabold text-muted-foreground">p95 Latency</p>
-                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(queryMetrics?.p95_latency_ms ?? 0)}</p>
+                <p className="text-2xl font-black mt-2 text-foreground">{formatMs(queryMetrics?.p95_latency_ms ?? 0)}</p>
               </div>
               <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
                 <p className="text-xs uppercase font-extrabold text-muted-foreground">p99 Latency</p>
-                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(queryMetrics?.p99_latency_ms ?? 0)}</p>
+                <p className="text-2xl font-black mt-2 text-foreground">{formatMs(queryMetrics?.p99_latency_ms ?? 0)}</p>
               </div>
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between text-base font-medium">
-              <span className="text-muted-foreground">Avg retrieved vector chunks</span>
-              <span className="font-extrabold text-foreground font-mono text-lg">
-                {queryMetrics?.avg_retrieved_chunks != null ? queryMetrics.avg_retrieved_chunks.toFixed(1) : '0.0'}
-              </span>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">Avg Retrieved Chunks</p>
+                <p className="text-2xl font-black mt-2 text-foreground">
+                  {queryMetrics?.avg_retrieved_chunks != null ? queryMetrics.avg_retrieved_chunks.toFixed(1) : '0.0'}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -351,28 +348,25 @@ export default function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 space-y-6">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
                 <p className="text-xs uppercase font-extrabold text-muted-foreground">Avg Proc Time</p>
-                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(uploadMetrics?.avg_processing_time_ms ?? 0)}</p>
+                <p className="text-2xl font-black mt-2 text-foreground">{formatMs(uploadMetrics?.avg_processing_time_ms ?? 0)}</p>
               </div>
               <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
                 <p className="text-xs uppercase font-extrabold text-muted-foreground">p50 Proc Time</p>
-                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(uploadMetrics?.p50_processing_time_ms ?? 0)}</p>
+                <p className="text-2xl font-black mt-2 text-foreground">{formatMs(uploadMetrics?.p50_processing_time_ms ?? 0)}</p>
               </div>
               <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
                 <p className="text-xs uppercase font-extrabold text-muted-foreground">p95 Proc Time</p>
-                <p className="text-2xl font-black mt-1 text-foreground">{formatMs(uploadMetrics?.p95_processing_time_ms ?? 0)}</p>
+                <p className="text-2xl font-black mt-2 text-foreground">{formatMs(uploadMetrics?.p95_processing_time_ms ?? 0)}</p>
               </div>
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between text-base font-medium">
-              <span className="text-muted-foreground">Failed upload count</span>
-              <Badge variant={uploadMetrics?.failed_uploads && uploadMetrics.failed_uploads > 0 ? 'destructive' : 'success'} className="text-sm px-3 py-1 font-bold">
-                {uploadMetrics?.failed_uploads ?? 0}
-              </Badge>
+              <div className="text-center p-4 rounded-2xl bg-muted/50 border border-border">
+                <p className="text-xs uppercase font-extrabold text-muted-foreground">Failed Uploads</p>
+                <p className="text-2xl font-black mt-2 text-foreground">
+                  {uploadMetrics?.failed_uploads ?? 0}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

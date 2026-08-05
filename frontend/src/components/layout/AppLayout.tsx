@@ -47,7 +47,7 @@ export function AppLayout() {
         onDrawerClose={() => setDrawerOpen(false)}
       />
 
-      <div className="flex min-h-screen relative z-10 pt-16 md:pt-0">
+      <div className="flex min-h-screen relative z-10 pt-16 md:pt-0 w-full overflow-hidden">
 
         <main
           className={cn(
@@ -61,9 +61,9 @@ export function AppLayout() {
           </div>
         </main>
 
-        {/* Mobile Main Content */}
-        <main className="md:hidden w-full flex flex-col">
-          <div className="p-4 max-w-full w-full flex-1 flex flex-col overflow-x-hidden">
+        {/* Mobile Main Content - Don't shift when drawer is open, sidebar is positioned fixed */}
+        <main className="md:hidden w-full flex flex-col fixed top-16 left-0 right-0 bottom-0">
+          <div className="p-4 max-w-full w-full flex-1 flex flex-col overflow-x-hidden overflow-y-auto">
             <Outlet />
           </div>
         </main>
