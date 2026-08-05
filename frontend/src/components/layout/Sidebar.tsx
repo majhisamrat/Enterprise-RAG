@@ -49,8 +49,8 @@ export function Sidebar({ collapsed, onToggle, isDrawerOpen, onDrawerClose }: {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-50 h-screen transition-all duration-300 ease-out glass-sidebar bg-white/90 backdrop-blur-2xl flex flex-col justify-between border-r border-sky-100 shadow-[8px_0_40px_-25px_rgba(10,50,100,.35)]',
-        // Mobile drawer
+        'fixed left-0 top-0 z-50 h-screen transition-all duration-300 ease-out glass-sidebar bg-white/90 backdrop-blur-2xl flex flex-col justify-between border-r border-sky-100 shadow-[8px_0_40px_-25px_rgba(10,50,100,.35)] overflow-hidden',
+        // Desktop: always flex. Mobile/Responsive: hidden unless drawer open
         'md:flex',
         isDrawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         isCollapsed ? 'w-[76px]' : 'w-72',
