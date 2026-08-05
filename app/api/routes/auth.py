@@ -84,11 +84,24 @@ class TokenResponse(BaseModel):
 
 
 @router.post("/send-otp")
-async def send_otp(req: SendOTPRequest):
-    """Send 6-digit OTP code to Gmail address."""
+async def send_otp(req: SendOTPRequest, db: AsyncSession = Depends(get_db)):
+    """Send 6-digit OTP code to email address - only if user exists."""
+    # Check if user exists in database
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(req.email.lower())
+    
+    if not user:
+        raise HTTPException(
+            status_code=404, 
+            detail="Email not registered yet. Please create an account first."
+        )
+    
+    # User exists, send OTP
     success, message = await OTPService.create_and_send_otp(req.email)
     if not success:
         raise HTTPException(status_code=400, detail=message)
+    
+    logger.info(f"OTP sent to registered user: {req.email}")
     return {"success": True, "message": message}
 
 
@@ -357,3 +370,54 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "email_verified": getattr(current_user, "email_verified", True),
         "status": current_user.status,
     }
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
+
+@router.post("/reset-password", response_model=TokenResponse)
+async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Reset user password after OTP verification."""
+    # Verify OTP
+    is_valid = await OTPService.verify_otp(req.email, req.otp)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP code")
+
+    # Find user
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_email(req.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update password
+    user.password_hash = hash_password(req.new_password)
+    user.email_verified = True
+    user.last_login = datetime.now(timezone.utc)
+    
+    db.add(user)
+    await db.commit()
+    
+    logger.info(f"Password reset for user: {req.email}")
+
+    # Create new tokens
+    access_token = create_access_token({"sub": str(user.id), "org": str(user.organization_id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    user_session = UserSession(
+        user_id=user.id,
+        refresh_token=refresh_token,
+        expires_at=datetime.now(timezone.utc),
+    )
+    db.add(user_session)
+    await db.commit()
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=str(user.id),
+        organization_id=str(user.organization_id),
+        email_verified=True,
+    )
