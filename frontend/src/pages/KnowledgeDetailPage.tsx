@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { formatBytes, formatMs } from '@/lib/utils';
 import { FadeIn, StaggerContainer, StaggerItem } from '@/components/shared/motion';
+import UploadLimitAlert from '@/components/knowledge/UploadLimitAlert';
 
 export default function KnowledgeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +41,14 @@ export default function KnowledgeDetailPage() {
   const [file, setFile] = useState<File | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [tags, setTags] = useState('');
+  
+  // Upload limit state
+  const [uploadLimitInfo, setUploadLimitInfo] = useState<{
+    isLimitReached: boolean;
+    uploadCount: number;
+    maxUploads: number;
+    resetTime: string;
+  } | null>(null);
 
   if (isLoading) {
     return (
@@ -55,11 +64,32 @@ export default function KnowledgeDetailPage() {
 
   const handleUpload = async () => {
     if (!file) return;
-    await uploadDoc.mutateAsync({ kbId: id!, file, displayName: displayName || undefined, tags: tags || undefined });
-    setUploadOpen(false);
-    setFile(null);
-    setDisplayName('');
-    setTags('');
+    try {
+      const result = await uploadDoc.mutateAsync({ kbId: id!, file, displayName: displayName || undefined, tags: tags || undefined });
+      setUploadOpen(false);
+      setFile(null);
+      setDisplayName('');
+      setTags('');
+    } catch (error: any) {
+      // Check if error is upload limit error (429)
+      if (error?.response?.status === 429) {
+        const errorData = error?.response?.data?.detail;
+        if (errorData) {
+          setUploadLimitInfo({
+            isLimitReached: true,
+            uploadCount: errorData.upload_count || 5,
+            maxUploads: errorData.max_uploads || 5,
+            resetTime: errorData.reset_time || 'Unknown',
+          });
+          // Close the upload dialog but keep the alert visible
+          setUploadOpen(false);
+          setFile(null);
+          setDisplayName('');
+          setTags('');
+        }
+      }
+      // Other errors handled by mutation error state
+    }
   };
 
   const handleDelete = async () => {
@@ -93,7 +123,7 @@ export default function KnowledgeDetailPage() {
           <RefreshCw className={`h-4 w-4 ${reindexKb.isPending ? 'animate-spin' : ''}`} />
           {reindexKb.isPending ? 'Reindexing...' : 'Reindex'}
         </Button>
-        <Button onClick={() => setUploadOpen(true)} className="gap-1.5 shadow-md shadow-primary/20">
+        <Button onClick={() => setUploadOpen(true)} disabled={uploadLimitInfo?.isLimitReached} className="gap-1.5 shadow-md shadow-primary/20">
           <Upload className="h-4 w-4" />
           Upload Document
         </Button>
@@ -139,6 +169,16 @@ export default function KnowledgeDetailPage() {
           <Sparkles className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-bold tracking-tight">Upload History</h2>
         </div>
+
+        {/* Upload Limit Alert */}
+        {uploadLimitInfo && (
+          <UploadLimitAlert
+            isLimitReached={uploadLimitInfo.isLimitReached}
+            uploadCount={uploadLimitInfo.uploadCount}
+            maxUploads={uploadLimitInfo.maxUploads}
+            resetTime={uploadLimitInfo.resetTime}
+          />
+        )}
 
         {!history || history.uploads.length === 0 ? (
           <EmptyState

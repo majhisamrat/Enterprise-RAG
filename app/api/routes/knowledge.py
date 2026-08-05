@@ -20,6 +20,7 @@ from app.storage.file_validator import validate_extension
 from app.storage.uploads import save_upload_file
 from app.tasks.tasks import process_document_ingestion_task
 from app.utils.logger import app_logger
+from app.utils.upload_limiter import DocumentUploadLimiter
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge Bases"])
 
@@ -261,6 +262,30 @@ async def upload_document_to_kb(
         raise HTTPException(status_code=400, detail="Invalid KB UUID")
 
     try:
+        # 🔐 CHECK UPLOAD LIMIT FIRST
+        is_allowed, upload_count, reset_time = await DocumentUploadLimiter.check_upload_limit(current_user.id, db)
+        
+        if not is_allowed:
+            # User has exceeded upload limit
+            reset_time_str = DocumentUploadLimiter.format_reset_time(reset_time) if reset_time else "Unknown"
+            
+            app_logger.warning(
+                f"Upload limit exceeded for user {current_user.id}. "
+                f"Uploads: {upload_count}/{DocumentUploadLimiter.MAX_UPLOADS_PER_24H}. "
+                f"Reset: {reset_time_str}"
+            )
+            
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "Upload limit exceeded",
+                    "message": f"You have reached your limit of {DocumentUploadLimiter.MAX_UPLOADS_PER_24H} documents per 24 hours.",
+                    "reset_time": reset_time_str,
+                    "upload_count": upload_count,
+                    "max_uploads": DocumentUploadLimiter.MAX_UPLOADS_PER_24H,
+                }
+            )
+        
         # Verify KB exists and belongs to org
         kb_repo = KnowledgeBaseRepository(db)
         kb = await kb_repo.get_by_id(kb_uuid)

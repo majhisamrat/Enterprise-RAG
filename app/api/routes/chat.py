@@ -9,6 +9,7 @@ from app.db.models import ChatSession, User
 from app.db.repositories.chat_repository import ChatRepository
 from app.db.session import get_db
 from app.utils.logger import app_logger
+from app.utils.rate_limiter import ChatRateLimiter
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -37,6 +38,7 @@ class ChatResponse(BaseModel):
     sources: List[Dict[str, Any]]
     metadata: Dict[str, Any]
     session_changed: Optional[bool] = False  # NEW: indicates if session was auto-created
+    rate_limit_info: Optional[Dict[str, Any]] = None  # NEW: rate limit status
 
 
 # 📋 CHAT HISTORY ENDPOINTS
@@ -283,6 +285,38 @@ async def chat(
         org_id = tenant_context.organization_id or getattr(current_user, "organization_id", None) or uuid.UUID("00000000-0000-0000-0000-000000000001")
         usr_id = getattr(current_user, "id", None) or uuid.UUID("00000000-0000-0000-0000-000000000001")
 
+        # 🔐 CHECK RATE LIMIT FIRST
+        is_allowed, message_count, reset_time = await ChatRateLimiter.check_rate_limit(usr_id, db)
+        
+        rate_limit_info = {
+            "is_allowed": is_allowed,
+            "message_count": message_count,
+            "max_messages": ChatRateLimiter.MAX_MESSAGES_PER_24H,
+            "reset_time": None,
+        }
+        
+        if not is_allowed:
+            # User has exceeded rate limit
+            reset_time_str = ChatRateLimiter.format_reset_time(reset_time) if reset_time else "Unknown"
+            rate_limit_info["reset_time"] = reset_time_str
+            
+            app_logger.warning(
+                f"Rate limit exceeded for user {usr_id}. "
+                f"Messages: {message_count}/{ChatRateLimiter.MAX_MESSAGES_PER_24H}. "
+                f"Reset: {reset_time_str}"
+            )
+            
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "Rate limit exceeded",
+                    "message": f"You have reached your limit of {ChatRateLimiter.MAX_MESSAGES_PER_24H} messages per 24 hours.",
+                    "reset_time": reset_time_str,
+                    "message_count": message_count,
+                    "max_messages": ChatRateLimiter.MAX_MESSAGES_PER_24H,
+                }
+            )
+
         # Parse KB ID if provided
         kb_uuid = None
         if request.knowledge_base_id:
@@ -395,6 +429,7 @@ async def chat(
             sources=response["sources"],
             metadata=response["metadata"],
             session_changed=create_new_session,  # NEW: tell frontend if session changed
+            rate_limit_info=rate_limit_info,  # Include rate limit info
         )
     except HTTPException:
         raise

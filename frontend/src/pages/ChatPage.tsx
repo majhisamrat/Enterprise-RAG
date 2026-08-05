@@ -14,6 +14,7 @@ import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, 
 import type { ChatMessageDisplay } from '@/types/chat';
 import { FadeIn } from '@/components/shared/motion';
 import { cn } from '@/lib/utils';
+import RateLimitAlert from '@/components/chat/RateLimitAlert';
 
 const promptSuggestions = [
   'Summarize the key takeaways from the latest uploaded reports',
@@ -38,6 +39,14 @@ export default function ChatPage() {
   const { data: kbs } = useKnowledgeBases();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  
+  // Rate limit state
+  const [rateLimitInfo, setRateLimitInfo] = useState<{
+    isLimitReached: boolean;
+    messageCount: number;
+    maxMessages: number;
+    resetTime: string;
+  } | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -175,6 +184,16 @@ export default function ChatPage() {
         top_k: 10,
       });
 
+      // Update rate limit info if included in response
+      if (res.rate_limit_info) {
+        setRateLimitInfo({
+          isLimitReached: !res.rate_limit_info.is_allowed,
+          messageCount: res.rate_limit_info.message_count,
+          maxMessages: res.rate_limit_info.max_messages,
+          resetTime: res.rate_limit_info.reset_time || '',
+        });
+      }
+
       // Update session ID if new session was created
       if (res.session_id && !sessionId) {
         setSessionId(res.session_id);
@@ -193,7 +212,21 @@ export default function ChatPage() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch {
+    } catch (error: any) {
+      // Check if error is a rate limit error (429)
+      if (error?.response?.status === 429) {
+        const errorData = error?.response?.data?.detail;
+        if (errorData) {
+          setRateLimitInfo({
+            isLimitReached: true,
+            messageCount: errorData.message_count || 10,
+            maxMessages: errorData.max_messages || 10,
+            resetTime: errorData.reset_time || 'Unknown',
+          });
+          // Remove the user message we just added since it failed
+          setMessages((prev) => prev.slice(0, -1));
+        }
+      }
       // Error handled by API interceptor
     }
   };
@@ -323,6 +356,16 @@ export default function ChatPage() {
         {/* ─── MESSAGES AREA ─── */}
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 bg-background/50">
           <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 h-full">
+            {/* Rate Limit Alert */}
+            {rateLimitInfo && (
+              <RateLimitAlert
+                isLimitReached={rateLimitInfo.isLimitReached}
+                messageCount={rateLimitInfo.messageCount}
+                maxMessages={rateLimitInfo.maxMessages}
+                resetTime={rateLimitInfo.resetTime}
+              />
+            )}
+
             {messages.length === 0 ? (
               <FadeIn className="h-full flex flex-col justify-center items-center py-12 space-y-6 md:space-y-8 text-center">
                 <div className="p-4 md:p-6 rounded-3xl bg-primary/10 border border-primary/20 shadow-lg glow-sm">
@@ -448,19 +491,22 @@ export default function ChatPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    selectedKb && selectedKb !== 'all'
+                    rateLimitInfo?.isLimitReached
+                      ? 'Daily message limit reached. Try again after reset time.'
+                      : selectedKb && selectedKb !== 'all'
                       ? `Ask about ${kbs?.find((k) => k.id === selectedKb)?.display_name}...`
                       : 'Ask anything across your knowledge bases...'
                   }
-                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-2 px-0 text-sm md:text-base font-medium placeholder:text-muted-foreground text-foreground"
+                  disabled={rateLimitInfo?.isLimitReached}
+                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-2 px-0 text-sm md:text-base font-medium placeholder:text-muted-foreground text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                   rows={1}
                 />
 
                 <Button
                   onClick={() => handleSend()}
-                  disabled={!input.trim() || chatMutation.isPending}
+                  disabled={!input.trim() || chatMutation.isPending || rateLimitInfo?.isLimitReached}
                   size="icon"
-                  className="gap-2 shadow-lg shadow-primary/25 h-8 md:h-9 w-8 md:w-9 font-bold rounded-full flex-shrink-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-90"
+                  className="gap-2 shadow-lg shadow-primary/25 h-8 md:h-9 w-8 md:w-9 font-bold rounded-full flex-shrink-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {chatMutation.isPending ? (
                     <Loader2 className="h-4 md:h-5 w-4 md:w-5 animate-spin" />
