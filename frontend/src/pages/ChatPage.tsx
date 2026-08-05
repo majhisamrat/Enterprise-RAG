@@ -39,6 +39,7 @@ export default function ChatPage() {
   const chatMutation = useChat();
   const { data: kbs } = useKnowledgeBases();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   
   // Rate limit state
@@ -52,6 +53,50 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-resize textarea on input with responsive max heights
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the scrollHeight
+      textarea.style.height = 'auto';
+      
+      // Determine max height based on screen size
+      let maxHeight = 200; // Desktop default
+      if (window.innerWidth < 768) {
+        maxHeight = 100; // Mobile: max 100px
+      } else if (window.innerWidth < 1024) {
+        maxHeight = 150; // Tablet: max 150px
+      }
+      
+      // Set height based on scrollHeight, capped at maxHeight
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [input]);
+
+  // Handle window resize to recalculate max height
+  useEffect(() => {
+    const handleResize = () => {
+      const textarea = textareaRef.current;
+      if (textarea && input) {
+        textarea.style.height = 'auto';
+        
+        let maxHeight = 200;
+        if (window.innerWidth < 768) {
+          maxHeight = 100;
+        } else if (window.innerWidth < 1024) {
+          maxHeight = 150;
+        }
+        
+        const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+        textarea.style.height = `${newHeight}px`;
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [input]);
 
   // Fetch chat history on component mount
   useEffect(() => {
@@ -538,10 +583,11 @@ export default function ChatPage() {
 
         {/* ─── INPUT AREA ─── */}
         <div className="border-t border-border/70 bg-muted/20 shrink-0">
-          <div className="p-3 md:p-4 relative">
+          <div className="p-2 md:p-6 relative">
             <div className="max-w-5xl mx-auto relative">
-              <div className="relative rounded-full border border-border/80 bg-card/60 shadow-lg px-4 md:px-5 py-2 md:py-2.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all flex items-center gap-3">
+              <div className="relative rounded-full border border-border/80 bg-card/60 shadow-lg px-4 md:px-6 py-3 md:py-4 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all flex items-center gap-3">
                 <Textarea
+                  ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -553,7 +599,7 @@ export default function ChatPage() {
                       : 'Ask anything across your knowledge bases...'
                   }
                   disabled={rateLimitInfo?.isLimitReached}
-                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-2 px-0 text-sm md:text-base font-medium placeholder:text-muted-foreground text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-1.5 md:py-2 px-0 text-sm md:text-base font-medium placeholder:text-muted-foreground text-foreground disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px] md:min-h-[44px] overflow-y-auto"
                   rows={1}
                 />
 
