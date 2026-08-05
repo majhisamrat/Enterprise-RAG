@@ -50,6 +50,7 @@ export default function ForgotPasswordPage() {
       }
 
       setStep('otp');
+      setError('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send OTP');
     } finally {
@@ -77,6 +78,7 @@ export default function ForgotPasswordPage() {
       }
 
       setStep('reset');
+      setError('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'OTP verification failed');
     } finally {
@@ -237,25 +239,45 @@ export default function ForgotPasswordPage() {
                       Enter OTP
                     </Label>
                     <p className="text-xs md:text-sm text-[#365c89]">Check your email for the 6-digit OTP</p>
-                    <Input
+                    <input
                       id="otp"
                       type="text"
                       placeholder="000000"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.slice(0, 6))}
+                      maxLength={6}
+                      required
                       style={{
-                        backgroundColor: '#e0f2fe !important',
-                        color: '#000000 !important',
+                        width: '100%',
+                        height: '3.5rem',
+                        backgroundColor: '#e0f2fe',
+                        color: '#000000',
+                        border: '2px solid #bae6fd',
+                        borderRadius: '0.75rem',
                         textAlign: 'center',
                         fontSize: '1.5rem',
                         letterSpacing: '0.5rem',
                         fontWeight: 'bold',
+                        fontFamily: 'monospace',
+                        padding: '0',
+                        outline: 'none',
                       }}
-                      className="h-14 md:h-16 font-mono rounded-xl border-sky-200 focus-visible:ring-[#2465bf] bg-sky-100 text-black placeholder:text-gray-600"
-                      maxLength={6}
-                      required
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#2465bf';
+                        e.target.style.boxShadow = '0 0 0 3px rgba(36, 101, 191, 0.1)';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#bae6fd';
+                        e.target.style.boxShadow = 'none';
+                      }}
                     />
                   </div>
+
+                  {error && (
+                    <Alert variant="destructive" className="text-sm md:text-base py-3.5 font-bold rounded-xl">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
 
                   <Button
                     type="submit"
@@ -275,7 +297,10 @@ export default function ForgotPasswordPage() {
 
                   <button
                     type="button"
-                    onClick={() => setStep('email')}
+                    onClick={() => {
+                      setStep('email');
+                      setError('');
+                    }}
                     className="w-full text-center text-sm font-semibold text-[#1246b8] hover:underline"
                   >
                     Back to Email
@@ -292,20 +317,35 @@ export default function ForgotPasswordPage() {
                     </Label>
                     <div className="relative flex items-center">
                       <Lock className="absolute left-3 md:left-4 z-10 h-4 md:h-5 w-4 md:w-5 text-muted-foreground pointer-events-none" />
-                      <Input
+                      <input
                         id="newPassword"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
+                        required
                         style={{
+                          width: '100%',
+                          height: '3.5rem',
                           paddingLeft: '2.5rem',
                           paddingRight: '2.5rem',
-                          backgroundColor: '#e0f2fe !important',
-                          color: '#000000 !important',
+                          backgroundColor: '#e0f2fe',
+                          color: '#000000',
+                          border: '2px solid #bae6fd',
+                          borderRadius: '0.75rem',
+                          fontSize: '1rem',
+                          fontWeight: '500',
+                          outline: 'none',
+                          boxSizing: 'border-box',
                         }}
-                        className="h-11 md:h-14 text-sm md:text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf] bg-sky-100 text-black placeholder:text-gray-600"
-                        required
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = '#2465bf';
+                          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(36, 101, 191, 0.1)';
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = '#bae6fd';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
                       />
                       <button
                         type="button"
@@ -323,20 +363,35 @@ export default function ForgotPasswordPage() {
                     </Label>
                     <div className="relative flex items-center">
                       <Lock className="absolute left-3 md:left-4 z-10 h-4 md:h-5 w-4 md:w-5 text-muted-foreground pointer-events-none" />
-                      <Input
+                      <input
                         id="confirmPassword"
                         type={showConfirmPassword ? 'text' : 'password'}
                         placeholder="••••••••"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
                         style={{
+                          width: '100%',
+                          height: '3.5rem',
                           paddingLeft: '2.5rem',
                           paddingRight: '2.5rem',
-                          backgroundColor: '#e0f2fe !important',
-                          color: '#000000 !important',
+                          backgroundColor: '#e0f2fe',
+                          color: '#000000',
+                          border: '2px solid #bae6fd',
+                          borderRadius: '0.75rem',
+                          fontSize: '1rem',
+                          fontWeight: '500',
+                          outline: 'none',
+                          boxSizing: 'border-box',
                         }}
-                        className="h-11 md:h-14 text-sm md:text-lg font-medium rounded-xl border-sky-200 focus-visible:ring-[#2465bf] bg-sky-100 text-black placeholder:text-gray-600"
-                        required
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = '#2465bf';
+                          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(36, 101, 191, 0.1)';
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = '#bae6fd';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
                       />
                       <button
                         type="button"
@@ -347,6 +402,12 @@ export default function ForgotPasswordPage() {
                       </button>
                     </div>
                   </div>
+
+                  {error && (
+                    <Alert variant="destructive" className="text-sm md:text-base py-3.5 font-bold rounded-xl">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
 
                   <Button
                     type="submit"
@@ -366,7 +427,10 @@ export default function ForgotPasswordPage() {
 
                   <button
                     type="button"
-                    onClick={() => setStep('otp')}
+                    onClick={() => {
+                      setStep('otp');
+                      setError('');
+                    }}
                     className="w-full text-center text-sm font-semibold text-[#1246b8] hover:underline"
                   >
                     Back to OTP

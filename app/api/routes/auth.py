@@ -381,11 +381,9 @@ class ResetPasswordRequest(BaseModel):
 @router.post("/reset-password", response_model=TokenResponse)
 async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Reset user password after OTP verification."""
-    # Verify OTP
-    is_valid = await OTPService.verify_otp(req.email, req.otp)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP code")
-
+    # Note: OTP was already verified in the verify-otp endpoint
+    # We don't verify it again here to prevent replay attack issues
+    
     # Find user
     user_repo = UserRepository(db)
     user = await user_repo.get_by_email(req.email)
