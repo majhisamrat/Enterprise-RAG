@@ -54,13 +54,13 @@ export default function DashboardPage() {
             <StaggerItem key={stat.key}>
               <Card className="relative overflow-hidden group p-5 md:p-8 glass-card border border-border shadow-xl rounded-2xl md:rounded-3xl">
                 <div className={`absolute top-0 right-0 w-40 h-40 rounded-full bg-gradient-to-br ${stat.gradient} blur-3xl pointer-events-none group-hover:scale-150 transition-transform duration-500`} />
-                <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 md:pb-4 space-y-0">
-                  <CardTitle className="text-xs md:text-xs font-black uppercase tracking-wider text-muted-foreground">
+                <div className={`absolute top-4 md:top-6 right-2 md:right-3 p-2.5 md:p-3.5 rounded-xl md:rounded-2xl bg-muted/80 border border-border ${stat.iconColor}`}>
+                  <Icon className="h-4 md:h-6 w-4 md:w-6" />
+                </div>
+                <CardHeader className="flex flex-col items-start justify-start p-0 pb-6 md:pb-8 space-y-0">
+                  <CardTitle className="text-xs md:text-xs font-black uppercase tracking-wider text-muted-foreground pr-14">
                     {stat.label}
                   </CardTitle>
-                  <div className={`p-2.5 md:p-3.5 rounded-xl md:rounded-2xl bg-muted/80 border border-border ${stat.iconColor}`}>
-                    <Icon className="h-4 md:h-6 w-4 md:w-6" />
-                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="text-3xl md:text-5xl font-black tracking-tight text-foreground">

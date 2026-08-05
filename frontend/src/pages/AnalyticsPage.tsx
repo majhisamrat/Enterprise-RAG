@@ -234,13 +234,13 @@ export default function AnalyticsPage() {
       <StaggerContainer className="grid gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
         <StaggerItem>
           <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="absolute top-4 right-2 p-3 rounded-2xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
+              <Search className="h-5 w-5" />
+            </div>
+            <CardHeader className="flex flex-row items-start justify-start p-0 pb-6 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground pr-14">
                 Total Queries
               </CardTitle>
-              <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                <Search className="h-5 w-5" />
-              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="text-4xl font-black tracking-tight text-foreground">
@@ -252,13 +252,13 @@ export default function AnalyticsPage() {
 
         <StaggerItem>
           <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="absolute top-4 right-2 p-3 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+              <Clock className="h-5 w-5" />
+            </div>
+            <CardHeader className="flex flex-row items-start justify-start p-0 pb-6 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground pr-14">
                 Avg Latency
               </CardTitle>
-              <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                <Clock className="h-5 w-5" />
-              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="text-4xl font-black tracking-tight text-foreground">
@@ -270,13 +270,13 @@ export default function AnalyticsPage() {
 
         <StaggerItem>
           <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="absolute top-4 right-2 p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <Activity className="h-5 w-5" />
+            </div>
+            <CardHeader className="flex flex-row items-start justify-start p-0 pb-6 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground pr-14">
                 Total Uploads
               </CardTitle>
-              <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                <Activity className="h-5 w-5" />
-              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="text-4xl font-black tracking-tight text-foreground">
@@ -288,13 +288,13 @@ export default function AnalyticsPage() {
 
         <StaggerItem>
           <Card className="relative overflow-hidden p-6 glass-card border border-border shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between p-0 pb-3 space-y-0">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="absolute top-4 right-2 p-3 rounded-2xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <CardHeader className="flex flex-row items-start justify-start p-0 pb-6 space-y-0">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground pr-14">
                 Pages Indexed
               </CardTitle>
-              <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
-                <TrendingUp className="h-5 w-5" />
-              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="text-4xl font-black tracking-tight text-foreground">
