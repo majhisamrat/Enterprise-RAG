@@ -401,3 +401,40 @@ class QdrantVectorStore(BaseVectorStore):
             logger.warning(f"Error deleting vectors for upload {upload_id}: {e}")
             QdrantConnection.mark_offline()
             return 0
+
+    async def delete_collection(self, knowledge_base_id: uuid.UUID) -> bool:
+        """
+        Delete entire KB-specific collection from Qdrant.
+        
+        Used when a Knowledge Base is deleted to clean up all associated vectors and collections.
+        This ensures complete cleanup and prevents orphaned collections in Qdrant.
+        """
+        if not QdrantConnection.is_available():
+            logger.debug("Qdrant circuit breaker OPEN — skipping collection delete")
+            return False
+
+        collection_name = self._get_collection_name(knowledge_base_id)
+
+        try:
+            client = self.client
+            if client is None:
+                logger.debug("Qdrant client unavailable — skipping collection delete")
+                return False
+
+            # Check if collection exists
+            collections = client.get_collections().collections
+            collection_exists = any(c.name == collection_name for c in collections)
+            
+            if not collection_exists:
+                logger.info(f"Collection '{collection_name}' does not exist — nothing to delete")
+                return True
+
+            # Delete the entire collection
+            client.delete_collection(collection_name=collection_name)
+            logger.info(f"✅ Deleted Qdrant collection '{collection_name}' for KB {knowledge_base_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to delete Qdrant collection '{collection_name}': {e}")
+            QdrantConnection.mark_offline()
+            return False

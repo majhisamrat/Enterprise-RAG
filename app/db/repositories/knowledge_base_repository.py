@@ -111,11 +111,25 @@ class KnowledgeBaseRepository(BaseRepository[KnowledgeBase]):
             kb.query_count = (kb.query_count or 0) + 1
             await self.update(kb)
 
-    async def delete_cascade(self, kb_id: uuid.UUID) -> int:
-        """Delete knowledge base and all related data (cascade)."""
-        # Delete will cascade via FK constraints
+    async def delete_cascade(self, kb_id: uuid.UUID, vector_store=None) -> int:
+        """Delete knowledge base and all related data (cascade).
+        
+        Args:
+            kb_id: Knowledge base ID to delete
+            vector_store: Optional QdrantVectorStore instance to delete Qdrant collections
+        """
         kb = await self.get_by_id(kb_id)
         if kb:
+            # Delete Qdrant collection if vector store provided
+            if vector_store:
+                try:
+                    await vector_store.delete_collection(kb_id)
+                except Exception as e:
+                    # Log but don't fail - database deletion is primary
+                    from app.utils.logger import logger
+                    logger.warning(f"Failed to delete Qdrant collection for KB {kb_id}: {e}")
+            
+            # Delete from database
             await self.session.delete(kb)
             await self.session.flush()
             return 1

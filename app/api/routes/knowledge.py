@@ -197,6 +197,7 @@ async def delete_knowledge_base(
     - All chat sessions for this KB
     - All query logs
     - All metadata
+    - Qdrant collection for this KB
     """
     try:
         kb_uuid = uuid.UUID(kb_id)
@@ -210,17 +211,21 @@ async def delete_knowledge_base(
         if not kb or kb.organization_id != tenant_context.organization_id:
             raise HTTPException(status_code=404, detail="Knowledge base not found")
 
-        # Delete will cascade via FK constraints
-        deleted_count = await kb_repo.delete_cascade(kb_uuid)
+        # Initialize vector store for Qdrant collection deletion
+        from app.vectorstore.qdrant_store import QdrantVectorStore
+        vector_store = QdrantVectorStore()
+
+        # Delete KB and associated Qdrant collection
+        deleted_count = await kb_repo.delete_cascade(kb_uuid, vector_store=vector_store)
 
         if deleted_count > 0:
             await db.commit()
-            app_logger.info(f"Deleted knowledge base: {kb.name} (ID: {kb_uuid})")
+            app_logger.info(f"Deleted knowledge base: {kb.name} (ID: {kb_uuid}) with Qdrant cleanup")
 
             return {
                 "success": True,
                 "deleted_kb_id": str(kb_uuid),
-                "message": f"Deleted knowledge base '{kb.name}' and all related data",
+                "message": f"Deleted knowledge base '{kb.name}' and all related data including Qdrant vectors",
             }
         else:
             raise HTTPException(status_code=404, detail="Knowledge base not found")
