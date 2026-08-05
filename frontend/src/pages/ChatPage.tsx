@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, Database, Menu } from 'lucide-react';
+import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, Database, Menu, Filter, Check } from 'lucide-react';
 import type { ChatMessageDisplay } from '@/types/chat';
 import { FadeIn } from '@/components/shared/motion';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,7 @@ export default function ChatPage() {
   const [loadingSession, setLoadingSession] = useState(false);
   const [currentSessionTitle, setCurrentSessionTitle] = useState<string>('');
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const chatMutation = useChat();
   const { data: kbs } = useKnowledgeBases();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -56,6 +57,21 @@ export default function ChatPage() {
   useEffect(() => {
     fetchChatHistory();
   }, []);
+
+  // Close mobile filter when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (mobileFilterOpen && !target.closest('[title="Filter by Knowledge Base"]') && !target.closest('.kb-filter-dropdown')) {
+        setMobileFilterOpen(false);
+      }
+    };
+    
+    if (mobileFilterOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [mobileFilterOpen]);
 
   // Fetch chat history
   const fetchChatHistory = async () => {
@@ -314,7 +330,46 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Knowledge Base Icon Button (Mobile only) */}
+            {/* Knowledge Base Filter (Mobile only) - Custom Dropdown */}
+            <div className="md:hidden relative">
+              <button
+                onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+                className="h-8 w-8 p-0 rounded-lg border border-border hover:bg-muted bg-background flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                title="Filter by Knowledge Base"
+              >
+                <Filter className="h-4 w-4" />
+              </button>
+              
+              {mobileFilterOpen && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50 py-1 kb-filter-dropdown">
+                  <button
+                    onClick={() => {
+                      setSelectedKb('all');
+                      setMobileFilterOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-muted flex items-center justify-between text-sm transition-colors"
+                  >
+                    <span>All Knowledge Bases</span>
+                    {selectedKb === 'all' && <Check className="h-4 w-4 text-primary" />}
+                  </button>
+                  {kbs?.map((kb) => (
+                    <button
+                      key={kb.id}
+                      onClick={() => {
+                        setSelectedKb(kb.id);
+                        setMobileFilterOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-muted flex items-center justify-between text-sm transition-colors"
+                    >
+                      <span className="truncate">{kb.display_name}</span>
+                      {selectedKb === kb.id && <Check className="h-4 w-4 text-primary" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Go to Knowledge Base (Mobile only) */}
             <Button
               variant="outline"
               size="icon"
