@@ -151,12 +151,11 @@ logs/
 .idea/workspace.xml
 .idea/tasks.xml
 
-# Frontend specific
-enterprise-rag-frontend/.env.local
-enterprise-rag-frontend/.env.*.local
-enterprise-rag-frontend/dist/
-enterprise-rag-frontend/node_modules/
-enterprise-rag-frontend/.vite/
+# Frontend - Completely ignore (deployed separately on Vercel)
+frontend/
+enterprise-rag-frontend/
+*.vercel.json
+.next/
 
 # Backend specific
 app/__pycache__/
