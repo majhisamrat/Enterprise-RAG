@@ -1,9 +1,5 @@
 version: '3.8'
 
-# Backend-only docker-compose for EC2 deployment
-# Frontend is deployed separately on Vercel
-# This file deploys: PostgreSQL, Redis, Qdrant, and Backend API only
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -46,12 +42,6 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - enterprise_rag
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:6333/health"] || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
   backend:
     build:
@@ -70,7 +60,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
-      DEBUG: 'false'
+      DEBUG: "false"
       LOG_LEVEL: ${LOG_LEVEL}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL}
@@ -80,25 +70,16 @@ services:
       MAX_OUTPUT_TOKENS: ${MAX_OUTPUT_TOKENS}
       UPLOAD_DIR: ${UPLOAD_DIR}
       MAX_FILE_SIZE: ${MAX_FILE_SIZE}
-      # Add frontend URL for CORS
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
     depends_on:
-      postgres:
-        condition: service_started
-      redis:
-        condition: service_started
-      qdrant:
-        condition: service_started
+      - postgres
+      - redis
+      - qdrant
     networks:
       - enterprise_rag
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
 
 volumes:
   postgres_data:
