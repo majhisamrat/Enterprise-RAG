@@ -77,7 +77,7 @@ def upgrade() -> None:
         sa.Column('password_hash', sa.String(255), nullable=False),
         sa.Column('auth_provider', sa.String(50), nullable=False, server_default='local'),
         sa.Column('google_sub', sa.String(255), nullable=True),
-        sa.Column('email_verified', sa.Boolean(), nullable=False, server_default=False),
+        sa.Column('email_verified', sa.Boolean(), nullable=False, server_default='false'),
         sa.Column('department', sa.String(100), nullable=True),
         sa.Column('designation', sa.String(100), nullable=True),
         sa.Column('avatar', sa.String(500), nullable=True),
