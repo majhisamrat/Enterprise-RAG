@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -34,7 +35,7 @@ class Organization(Base, UUIDMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     domain: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     subscription_plan: Mapped[str] = mapped_column(String(50), default="enterprise", nullable=False)
-    storage_limit: Mapped[int] = mapped_column(Integer, default=107374182400, nullable=False)  # 100 GB in bytes
+    storage_limit: Mapped[int] = mapped_column(BigInteger, default=107374182400, nullable=False)  # 100 GB in bytes
 
     # Relationships
     users: Mapped[List["User"]] = relationship("User", back_populates="organization", cascade="all, delete-orphan")
