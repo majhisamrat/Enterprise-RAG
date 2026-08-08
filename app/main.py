@@ -14,9 +14,17 @@ async def lifespan(app: FastAPI):
     """Application startup and shutdown event lifecycle manager."""
     app_logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}...")
 
-    # Initialize database tables via migrations
-    # Note: Tables are now managed exclusively by Alembic migrations
-    app_logger.success("Database migration layer ready.")
+    # Initialize database tables
+    try:
+        from app.db.base import Base
+        from app.db.session import get_engine
+        engine = await get_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        await engine.dispose()
+        app_logger.success("Database tables initialized.")
+    except Exception as e:
+        app_logger.error(f"Database initialization failed: {e}")
 
     # Pre-warm heavy ML models at startup so first request is fast
     try:
