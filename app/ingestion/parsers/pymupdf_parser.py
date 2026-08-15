@@ -4,7 +4,7 @@ import pandas as pd
 import pymupdf as fitz
 from docx import Document
 from loguru import logger
-from pptx import Presentation
+from pptx import Presentation  
 
 from app.ingestion.exceptions import UnsupportedFileType
 from app.ingestion.schemas import ParsedDocument, ParsedPage
@@ -28,8 +28,8 @@ class DocumentParser:
         elif self.extension == ".docx":
             return self._parse_docx()
 
-        elif self.extension == ".pptx":
-            return self._parse_pptx()
+        # elif self.extension == ".pptx":  # DISABLED: pptx module not available
+        #     return self._parse_pptx()
 
         elif self.extension in [".xlsx", ".xls"]:
             return self._parse_xlsx()
@@ -217,22 +217,46 @@ class DocumentParser:
 
         try:
             dataframe = pd.read_csv(self.file_path)
-            text = dataframe.to_string(index=False)
-
-            pages = [
+            
+            # Create separate pages for each row to enable proper chunking
+            # This ensures each row is treated as independent data
+            pages = []
+            
+            # Add header row as first page
+            header_text = ", ".join(dataframe.columns.tolist())
+            pages.append(
                 ParsedPage(
                     document=self.file_path.name,
                     page=1,
-                    text=text,
+                    text=header_text,
                     needs_ocr=False,
                 )
-            ]
+            )
+            
+            # Add each data row as a separate page
+            for row_idx, (_, row) in enumerate(dataframe.iterrows(), start=2):
+                # Convert row to readable string format
+                row_text = ", ".join(
+                    f"{col}: {str(val).strip()}"
+                    for col, val in row.items()
+                    if pd.notna(val)
+                )
+                pages.append(
+                    ParsedPage(
+                        document=self.file_path.name,
+                        page=row_idx,
+                        text=row_text,
+                        needs_ocr=False,
+                    )
+                )
+            
+            total_text = "\n".join(page.text for page in pages)
 
             return ParsedDocument(
                 document=self.file_path.name,
                 file_type="csv",
-                page_count=1,
-                total_characters=len(text),
+                page_count=len(pages),
+                total_characters=len(total_text),
                 needs_ocr=False,
                 ocr_used=False,
                 pages=pages,

@@ -45,22 +45,22 @@ class Settings(BaseSettings):
     MINIO_ENDPOINT: Optional[str] = "http://localhost:9000"
 
     # Relational Database (PostgreSQL)
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/enterprise_rag"
-    SYNC_DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/enterprise_rag"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/enterprise_rag"
+    SYNC_DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@postgres:5432/enterprise_rag"
 
     # Redis Cache & Broker
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://redis:6379/0"
 
     # Vector Storage (Qdrant)
-    QDRANT_URL: str = "http://localhost:6333"
-    QDRANT_HOST: str = "localhost"
+    QDRANT_URL: str = "http://qdrant:6333"
+    QDRANT_HOST: str = "qdrant"
     QDRANT_PORT: int = 6333
     QDRANT_COLLECTION: str = "enterprise_documents"
     EMBEDDING_DIMENSION: int = 384
-    SEARCH_CONNECT_TIMEOUT_SECONDS: float = 0.5
+    SEARCH_CONNECT_TIMEOUT_SECONDS: float = 30
 
     # Search Engine (Elasticsearch)
-    ELASTICSEARCH_URL: str = "http://localhost:9200"
+    ELASTICSEARCH_URL: str = "http://elasticsearch:9200"
     ELASTIC_INDEX: str = "enterprise_documents"
 
     # Embeddings & Reranker Models

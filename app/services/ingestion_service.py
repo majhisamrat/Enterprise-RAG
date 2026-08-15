@@ -102,6 +102,7 @@ class IngestionService:
                     tags=tags,
                     upload_id=upload_id,  # NEW: tag vectors with upload
                     knowledge_base_id=knowledge_base_id,  # NEW: tag with KB
+                    document_name=doc_title,  # FIX: Pass actual filename, not f"doc_{document_id}"
                 )
             except Exception as e:
                 logger.warning(f"Qdrant vector store indexing skipped (server offline?): {e}")

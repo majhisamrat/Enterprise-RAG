@@ -27,13 +27,14 @@ async def lifespan(app: FastAPI):
         app_logger.error(f"Database initialization failed: {e}")
 
     # Pre-warm heavy ML models at startup so first request is fast
-    try:
-        from app.embeddings.embedding_model import EmbeddingModel
-        app_logger.info(f"Pre-warming embedding model '{settings.MODEL_NAME}'...")
-        EmbeddingModel.load(settings.MODEL_NAME)
-        app_logger.success("Embedding model ready.")
-    except Exception as e:
-        app_logger.warning(f"Embedding model pre-warm skipped: {e}")
+    # NOTE: Disabled for now to speed up container startup.  Will load on first request.
+    # try:
+    #     from app.embeddings.embedding_model import EmbeddingModel
+    #     app_logger.info(f"Pre-warming embedding model '{settings.MODEL_NAME}'...")
+    #     EmbeddingModel.load(settings.MODEL_NAME)
+    #     app_logger.success("Embedding model ready.")
+    # except Exception as e:
+    #     app_logger.warning(f"Embedding model pre-warm skipped: {e}")
 
     # The large cross-encoder is intentionally opt-in on CPU.  It can add tens
     # of seconds per query; enable it only when the precision trade-off is worth it.

@@ -370,6 +370,28 @@ class QueryLog(Base, UUIDMixin):
     upload: Mapped[Optional[Upload]] = relationship("Upload", back_populates="query_logs")
 
 
+class StructuredFileSchema(Base, UUIDMixin, TimestampMixin):
+    """
+    PHASE 2: Persisted schema metadata for CSV/XLSX files.
+    
+    Stores discovered column definitions and semantic roles per upload.
+    Schema versioning: if file re-uploaded, schema regenerated from scratch (not merged).
+    """
+    __tablename__ = "structured_file_schemas"
+    
+    upload_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("uploads.id", ondelete="CASCADE"), nullable=False, index=True)
+    knowledge_base_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=False, index=True)
+    sheet_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # For XLSX: sheet name; for CSV: NULL
+    schema_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # Increment on re-ingest
+    columns: Mapped[dict] = mapped_column(JSON, nullable=False)  # List of column metadata dicts from schema_discovery.py
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    
+    # Relationships
+    upload: Mapped[Upload] = relationship("Upload", foreign_keys=[upload_id])
+    knowledge_base: Mapped[KnowledgeBase] = relationship("KnowledgeBase", foreign_keys=[knowledge_base_id])
+
+
 class VectorMetadata(Base, UUIDMixin):
     """Denormalized metadata cache for fast dashboard queries."""
     __tablename__ = "vector_metadata"

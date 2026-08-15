@@ -1,8 +1,7 @@
 from __future__ import annotations
 import time
 from typing import Optional
-from google import genai
-from google.genai.types import GenerateContentConfig
+import google.generativeai as genai
 
 from app.config import settings
 from app.llm.base import BaseLLM
@@ -54,7 +53,7 @@ class GeminiLLM(BaseLLM):
                     response = active_client.models.generate_content(
                         model=model_name,
                         contents=prompt,
-                        config=GenerateContentConfig(
+                        generation_config=genai.types.GenerationConfig(
                             temperature=settings.TEMPERATURE,
                             top_p=settings.TOP_P,
                             max_output_tokens=settings.MAX_OUTPUT_TOKENS,

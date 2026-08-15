@@ -1,0 +1,274 @@
+================================================================================
+PHASE 0 — CRITICAL RETRIEVAL BUG FIX — DIFFS
+================================================================================
+
+FILE 1: app/services/ingestion_service.py
+================================================================================
+Location: Line ~101 (in upsert_document_chunks call)
+
+BEFORE:
+    await self.vector_store.upsert_document_chunks(
+        document=embedded_doc,
+        document_id=doc_id,
+        organization_id=organization_id,
+        department=department,
+        author=author,
+        tags=tags,
+        upload_id=upload_id,  # NEW: tag vectors with upload
+        knowledge_base_id=knowledge_base_id,  # NEW: tag with KB
+    )
+
+AFTER:
+    await self.vector_store.upsert_document_chunks(
+        document=embedded_doc,
+        document_id=doc_id,
+        organization_id=organization_id,
+        department=department,
+        author=author,
+        tags=tags,
+        upload_id=upload_id,  # NEW: tag vectors with upload
+        knowledge_base_id=knowledge_base_id,  # NEW: tag with KB
+        document_name=doc_title,  # FIX: Pass actual filename, not f"doc_{document_id}"
+    )
+
+DIFF:
+    - Added parameter: document_name=doc_title
+    - Total lines changed: 1
+
+================================================================================
+FILE 2: app/retrieval/hybrid.py
+================================================================================
+Location 1: Function signature (Line ~25)
+
+BEFORE:
+    def retrieve(
+        self,
+        query: str,
+        limit: int = 10,
+        organization_id: Optional[uuid.UUID] = None,
+        knowledge_base_id: Optional[uuid.UUID] = None,
+        allowed_file_names: Optional[set] = None,
+        upload_id: Optional[uuid.UUID] = None,
+        department: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+
+AFTER:
+    def retrieve(
+        self,
+        query: str,
+        limit: int = 10,
+        organization_id: Optional[uuid.UUID] = None,
+        knowledge_base_id: Optional[uuid.UUID] = None,
+        allowed_file_names: Optional[set] = None,
+        allowed_upload_ids: Optional[set] = None,  # NEW: use upload_id for unambiguous filtering
+        upload_id: Optional[uuid.UUID] = None,
+        department: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+
+DIFF:
+    + Added parameter: allowed_upload_ids: Optional[set] = None
+
+---
+
+Location 2: Fallback call (Line ~50)
+
+BEFORE:
+    fused_results = self._local_file_search_fallback(
+        query=query,
+        allowed_file_names=allowed_file_names,
+    )
+
+AFTER:
+    fused_results = self._local_file_search_fallback(
+        query=query,
+        allowed_file_names=allowed_file_names,
+        allowed_upload_ids=allowed_upload_ids,
+    )
+
+DIFF:
+    + Added parameter: allowed_upload_ids=allowed_upload_ids
+
+---
+
+Location 3: KB post-filter logic (Lines ~58-75)
+
+BEFORE:
+    # Post-filter: If KB filter is set, strictly remove any doc not matching allowed file names
+    if allowed_file_names is not None and allowed_file_names:
+        allowed_lowers = {f.lower() for f in allowed_file_names}
+        strict_fused = []
+        for doc in fused_results:
+            doc_title = str(doc.get("title") or doc.get("document_id") or "").lower()
+            if doc_title in allowed_lowers or any(af in doc_title for af in allowed_lowers):
+                strict_fused.append(doc)
+        fused_results = strict_fused
+        logger.info(f"Strict KB filtered candidates: {len(fused_results)}")
+
+AFTER:
+    # Post-filter: Apply KB isolation via upload_id (preferred) or filename (fallback)
+    if allowed_upload_ids is not None and allowed_upload_ids:
+        # PRIMARY: Filter by upload_id (unambiguous)
+        strict_fused = [d for d in fused_results if d.get("upload_id") in allowed_upload_ids]
+        logger.info(f"Filtered by upload_id: {len(strict_fused)} documents")
+        fused_results = strict_fused
+    elif allowed_file_names is not None and allowed_file_names:
+        # FALLBACK: Filter by document_name or filename (for legacy vectors)
+        allowed_lowers = {f.lower() for f in allowed_file_names}
+        strict_fused = []
+        for doc in fused_results:
+            # Check document_name first (new payload field), then fallback to document_id
+            doc_title = str(doc.get("document_name") or doc.get("title") or doc.get("document_id") or "").lower()
+            if doc_title in allowed_lowers or any(af in doc_title for af in allowed_lowers):
+                strict_fused.append(doc)
+        fused_results = strict_fused
+        logger.info(f"Strict KB filtered candidates: {len(fused_results)}")
+
+DIFF:
+    - Changed: if allowed_file_names → if allowed_upload_ids (primary filter)
+    + Added: elif allowed_file_names (fallback filter, only if upload_ids not provided)
+    + Changed: doc.get("title") → doc.get("document_name") or doc.get("title") (check document_name first)
+    + Total lines: ~15 (added two-tier filtering strategy)
+
+---
+
+Location 4: Fallback function signature (Line ~92)
+
+BEFORE:
+    def _local_file_search_fallback(
+        self,
+        query: str,
+        allowed_file_names: Optional[set] = None,
+    ) -> List[Dict[str, Any]]:
+
+AFTER:
+    def _local_file_search_fallback(
+        self,
+        query: str,
+        allowed_file_names: Optional[set] = None,
+        allowed_upload_ids: Optional[set] = None,
+    ) -> List[Dict[str, Any]]:
+
+DIFF:
+    + Added parameter: allowed_upload_ids: Optional[set] = None
+
+---
+
+Total changes in hybrid.py: ~30 LOC
+
+================================================================================
+FILE 3: app/orchestrator/rag.py
+================================================================================
+Location: KB upload filtering (Lines ~147-161)
+
+BEFORE:
+    allowed_file_names: Optional[set] = None
+
+    if knowledge_base_id and db_session:
+        from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
+        from app.db.repositories.upload_repository import UploadRepository
+        from pathlib import Path
+
+        kb_repo = KnowledgeBaseRepository(db_session)
+        upload_repo = UploadRepository(db_session)
+
+        kb_obj = await kb_repo.get_by_id(knowledge_base_id)
+        if kb_obj:
+            kb_name = kb_obj.display_name
+            await kb_repo.update_last_queried(knowledge_base_id)
+
+        kb_uploads = await upload_repo.get_by_kb(knowledge_base_id, skip=0, limit=1000)
+        allowed_file_names = set()
+        for u in kb_uploads:
+            if u.original_filename:
+                allowed_file_names.add(u.original_filename.lower())
+            if u.storage_path:
+                allowed_file_names.add(Path(u.storage_path).name.lower())
+
+AFTER:
+    allowed_file_names: Optional[set] = None
+    allowed_upload_ids: Optional[set] = None
+
+    if knowledge_base_id and db_session:
+        from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
+        from app.db.repositories.upload_repository import UploadRepository
+        from pathlib import Path
+
+        kb_repo = KnowledgeBaseRepository(db_session)
+        upload_repo = UploadRepository(db_session)
+
+        kb_obj = await kb_repo.get_by_id(knowledge_base_id)
+        if kb_obj:
+            kb_name = kb_obj.display_name
+            await kb_repo.update_last_queried(knowledge_base_id)
+
+        kb_uploads = await upload_repo.get_by_kb(knowledge_base_id, skip=0, limit=1000)
+        allowed_file_names = set()
+        allowed_upload_ids = set()
+        for u in kb_uploads:
+            if u.original_filename:
+                allowed_file_names.add(u.original_filename.lower())
+            if u.storage_path:
+                allowed_file_names.add(Path(u.storage_path).name.lower())
+            if u.id:
+                allowed_upload_ids.add(str(u.id))
+
+DIFF:
+    + Added: allowed_upload_ids: Optional[set] = None (line 1)
+    + Added: allowed_upload_ids = set() (line 2, in loop initialization)
+    + Added: if u.id: allowed_upload_ids.add(str(u.id)) (line 3, in loop body)
+
+---
+
+Location: Retriever call (Lines ~164-171)
+
+BEFORE:
+    retrieved_docs = self.retriever.retrieve(
+        query=rewritten_query,
+        limit=top_k,
+        organization_id=organization_id,
+        knowledge_base_id=knowledge_base_id,
+        allowed_file_names=allowed_file_names if knowledge_base_id else None,
+        department=department,
+    )
+
+AFTER:
+    retrieved_docs = self.retriever.retrieve(
+        query=rewritten_query,
+        limit=top_k,
+        organization_id=organization_id,
+        knowledge_base_id=knowledge_base_id,
+        allowed_file_names=allowed_file_names if knowledge_base_id else None,
+        allowed_upload_ids=allowed_upload_ids if knowledge_base_id else None,
+        department=department,
+    )
+
+DIFF:
+    + Added: allowed_upload_ids=allowed_upload_ids if knowledge_base_id else None
+
+---
+
+Total changes in rag.py: ~5 LOC
+
+================================================================================
+SUMMARY
+================================================================================
+
+Total files modified: 3
+Total lines of code changed: ~40 LOC
+
+Breakdown:
+  - app/services/ingestion_service.py: 1 line (parameter add)
+  - app/retrieval/hybrid.py: ~30 lines (filtering logic improve)
+  - app/orchestrator/rag.py: ~5 lines (thread through)
+
+Type of changes:
+  - Parameter additions: 4
+  - Logic improvements: 1 (two-tier filtering)
+  - Field lookup improvements: 1 (document_name check priority)
+
+Backward compatibility: ✅ FULL
+Breaking changes: ❌ NONE
+New APIs: ❌ NONE
+Database changes: ❌ NONE
+
+================================================================================

@@ -27,11 +27,16 @@ class HybridRetriever:
         organization_id: Optional[uuid.UUID] = None,
         knowledge_base_id: Optional[uuid.UUID] = None,
         allowed_file_names: Optional[set] = None,
+        allowed_upload_ids: Optional[set] = None,  # NEW: use upload_id for unambiguous filtering
         upload_id: Optional[uuid.UUID] = None,
         department: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Perform hybrid retrieval with strict KB/upload filtering.
+        
+        Filtering strategy (defense in depth):
+        1. If allowed_upload_ids provided: filter by upload_id (unambiguous)
+        2. Else if allowed_file_names provided: filter by document_name (legacy/fallback)
         """
         logger.info(
             f"Running hybrid retrieval for query: '{query}' "
@@ -77,14 +82,22 @@ class HybridRetriever:
             fused_results = self._local_file_search_fallback(
                 query=query,
                 allowed_file_names=allowed_file_names,
+                allowed_upload_ids=allowed_upload_ids,
             )
 
-        # Post-filter: If KB filter is set, strictly remove any doc not matching allowed file names
-        if allowed_file_names is not None and allowed_file_names:
+        # Post-filter: Apply KB isolation via upload_id (preferred) or filename (fallback)
+        if allowed_upload_ids is not None and allowed_upload_ids:
+            # PRIMARY: Filter by upload_id (unambiguous)
+            strict_fused = [d for d in fused_results if d.get("upload_id") in allowed_upload_ids]
+            logger.info(f"Filtered by upload_id: {len(strict_fused)} documents")
+            fused_results = strict_fused
+        elif allowed_file_names is not None and allowed_file_names:
+            # FALLBACK: Filter by document_name or filename (for legacy vectors)
             allowed_lowers = {f.lower() for f in allowed_file_names}
             strict_fused = []
             for doc in fused_results:
-                doc_title = str(doc.get("title") or doc.get("document_id") or "").lower()
+                # Check document_name first (new payload field), then fallback to document_id
+                doc_title = str(doc.get("document_name") or doc.get("title") or doc.get("document_id") or "").lower()
                 if doc_title in allowed_lowers or any(af in doc_title for af in allowed_lowers):
                     strict_fused.append(doc)
             fused_results = strict_fused
@@ -102,6 +115,7 @@ class HybridRetriever:
         self,
         query: str,
         allowed_file_names: Optional[set] = None,
+        allowed_upload_ids: Optional[set] = None,
     ) -> List[Dict[str, Any]]:
         """Fallback to search across uploaded documents with strict KB file scoping."""
         results: List[Dict[str, Any]] = []

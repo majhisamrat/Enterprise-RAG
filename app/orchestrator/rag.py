@@ -132,6 +132,7 @@ class RAGOrchestrator(BaseOrchestrator):
         )
 
         allowed_file_names: Optional[set] = None
+        allowed_upload_ids: Optional[set] = None
 
         if knowledge_base_id and db_session:
             from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
@@ -148,11 +149,14 @@ class RAGOrchestrator(BaseOrchestrator):
 
             kb_uploads = await upload_repo.get_by_kb(knowledge_base_id, skip=0, limit=1000)
             allowed_file_names = set()
+            allowed_upload_ids = set()
             for u in kb_uploads:
                 if u.original_filename:
                     allowed_file_names.add(u.original_filename.lower())
                 if u.storage_path:
                     allowed_file_names.add(Path(u.storage_path).name.lower())
+                if u.id:
+                    allowed_upload_ids.add(str(u.id))
 
         # 4. Perform Hybrid Retrieval with KB filtering
         # Use rewritten query for retrieval, but keep original for display
@@ -162,6 +166,7 @@ class RAGOrchestrator(BaseOrchestrator):
             organization_id=organization_id,
             knowledge_base_id=knowledge_base_id,
             allowed_file_names=allowed_file_names if knowledge_base_id else None,
+            allowed_upload_ids=allowed_upload_ids if knowledge_base_id else None,
             department=department,
         )
 

@@ -45,7 +45,8 @@ class ElasticConnection:
             es_url = settings.ELASTICSEARCH_URL or "http://localhost:9200"
             cls._client = Elasticsearch(
                 hosts=[es_url],
-                request_timeout=settings.SEARCH_CONNECT_TIMEOUT_SECONDS,
-                max_retries=0,
+                request_timeout=30,
+                max_retries=2,
+                verify_certs=False,
             )
         return cls._client

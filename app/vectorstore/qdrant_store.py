@@ -141,6 +141,12 @@ class QdrantVectorStore(BaseVectorStore):
             logger.debug("Qdrant circuit breaker OPEN — skipping upsert (0ms)")
             return
 
+        # Access client to ensure it's initialized
+        client = self.client
+        if client is None:
+            logger.warning("Qdrant client unavailable - skipping upsert")
+            return
+
         # Get KB-specific collection name for perfect segmentation
         collection_name = self._get_collection_name(knowledge_base_id)
         
@@ -260,12 +266,25 @@ class QdrantVectorStore(BaseVectorStore):
             if client is None:
                 logger.debug("Qdrant client unavailable — skipping search")
                 return []
-                
-            # Check if collection exists
+            
+            # Ensure client is fresh by checking collections
             collections = client.get_collections().collections
-            if not any(c.name == collection_name for c in collections):
-                logger.debug(f"Collection '{collection_name}' does not exist")
-                return []
+            collection_names = [c.name for c in collections]
+            
+            if collection_name not in collection_names:
+                logger.warning(f"Collection '{collection_name}' not found. Available: {collection_names[:3]}")
+                # Try to create it now if KB-specific
+                if knowledge_base_id:
+                    logger.info(f"Creating collection '{collection_name}' on-demand during search...")
+                    self._ensure_collection(knowledge_base_id)
+                    # Check again
+                    collections = client.get_collections().collections
+                    if not any(c.name == collection_name for c in collections):
+                        logger.debug(f"Collection '{collection_name}' still doesn't exist after creation attempt")
+                        return []
+                else:
+                    logger.debug(f"Default collection '{collection_name}' does not exist")
+                    return []
 
             # Build filter conditions
             must_conditions = []
@@ -306,12 +325,20 @@ class QdrantVectorStore(BaseVectorStore):
 
             query_filter = Filter(must=must_conditions) if must_conditions else None
                 
-            results = client.query_points(
-                collection_name=collection_name,
-                query=query_embedding,
-                query_filter=query_filter,
-                limit=limit,
-            )
+            try:
+                results = client.query_points(
+                    collection_name=collection_name,
+                    query=query_embedding,
+                    query_filter=query_filter,
+                    limit=limit,
+                )
+            except Exception as search_error:
+                # Log detailed error for debugging
+                logger.error(f"Qdrant query_points failed for collection '{collection_name}': {search_error}")
+                logger.debug(f"Query embedding dimension: {len(query_embedding)}")
+                logger.debug(f"Collection exists check passed - error must be in the query")
+                # Return empty instead of crashing
+                return []
 
             formatted_results = []
             for pt in results.points:

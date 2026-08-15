@@ -1,7 +1,6 @@
 import os
 
 from app.config import settings
-from app.llm.gemini import GeminiLLM
 from app.llm.groq import GroqLLM
 from app.llm.utils import get_live_setting
 
@@ -16,6 +15,7 @@ class LLMProvider:
         if provider == "groq":
             return GroqLLM()
         if provider == "gemini":
+            from app.llm.gemini import GeminiLLM
             return GeminiLLM()
 
         return GroqLLM()
