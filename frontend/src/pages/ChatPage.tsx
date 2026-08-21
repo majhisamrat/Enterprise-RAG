@@ -10,11 +10,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, Database, Menu, Filter, Check } from 'lucide-react';
+import { Send, Brain, User, Loader2, BookOpen, Plus, ArrowUpRight, ChevronLeft, ChevronRight, Sparkles, MessageSquare, Trash2, Database, Menu, Filter, Check, AlertCircle } from 'lucide-react';
 import type { ChatMessageDisplay } from '@/types/chat';
 import { FadeIn } from '@/components/shared/motion';
 import { cn } from '@/lib/utils';
 import RateLimitAlert from '@/components/chat/RateLimitAlert';
+import { chatApi } from '@/api/chat';
 
 const promptSuggestions = [
   'Summarize the key takeaways from the latest uploaded reports',
@@ -42,6 +43,12 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   
+  // KB Requirements state
+  const [kbCount, setKbCount] = useState<number>(0);
+  const [requireKbSelection, setRequireKbSelection] = useState<boolean>(false);
+  const [loadingKbRequirements, setLoadingKbRequirements] = useState(true);
+  const [kbRequirementMessage, setKbRequirementMessage] = useState<string>('');
+  
   // Rate limit state
   const [rateLimitInfo, setRateLimitInfo] = useState<{
     isLimitReached: boolean;
@@ -49,6 +56,9 @@ export default function ChatPage() {
     maxMessages: number;
     resetTime: string;
   } | null>(null);
+  
+  // KB selection error state
+  const [kbSelectionError, setKbSelectionError] = useState<string>('');
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -101,7 +111,28 @@ export default function ChatPage() {
   // Fetch chat history on component mount
   useEffect(() => {
     fetchChatHistory();
+    fetchKbRequirements();
   }, []);
+
+  // Fetch KB requirements
+  const fetchKbRequirements = async () => {
+    setLoadingKbRequirements(true);
+    try {
+      const requirements = await chatApi.getKbRequirements();
+      setKbCount(requirements.kb_count);
+      setRequireKbSelection(requirements.require_kb_selection);
+      setKbRequirementMessage(requirements.message);
+
+      // Auto-select KB if only 1 exists
+      if (requirements.kb_count === 1 && requirements.kbs.length > 0) {
+        setSelectedKb(requirements.kbs[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching KB requirements:', error);
+    } finally {
+      setLoadingKbRequirements(false);
+    }
+  };
 
   // Close mobile filter when clicking outside
   useEffect(() => {
@@ -220,12 +251,23 @@ export default function ChatPage() {
     setMessages([]);
     setSessionId(null);
     setCurrentSessionTitle('');
-    setSelectedKb('all');
+    // If KB selection is required, reset to empty; otherwise reset to 'all'
+    if (requireKbSelection) {
+      setSelectedKb('');
+    } else {
+      setSelectedKb('all');
+    }
   };
 
   const handleSend = async (customQuery?: string) => {
     const query = (customQuery || input).trim();
     if (!query || chatMutation.isPending) return;
+
+    // Check if KB selection is required but not selected
+    if (requireKbSelection && (!selectedKb || selectedKb === 'all')) {
+      setKbSelectionError('Please select a knowledge base before sending a message.');
+      return;
+    }
 
     const userMsg: ChatMessageDisplay = {
       id: `user-${Date.now()}`,
@@ -236,6 +278,7 @@ export default function ChatPage() {
 
     setMessages((prev) => [...prev, userMsg]);
     if (!customQuery) setInput('');
+    setKbSelectionError(''); // Clear any previous error
 
     try {
       const res = await chatMutation.mutateAsync({
@@ -287,6 +330,13 @@ export default function ChatPage() {
           // Remove the user message we just added since it failed
           setMessages((prev) => prev.slice(0, -1));
         }
+      } else if (error?.response?.status === 400) {
+        // Handle KB selection error from backend
+        const errorData = error?.response?.data;
+        const errorMsg = errorData?.detail || 'Please select a knowledge base.';
+        setKbSelectionError(errorMsg);
+        // Remove the user message we just added since it failed
+        setMessages((prev) => prev.slice(0, -1));
       }
       // Error handled by API interceptor
     }
@@ -387,16 +437,19 @@ export default function ChatPage() {
               
               {mobileFilterOpen && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50 py-1 kb-filter-dropdown">
-                  <button
-                    onClick={() => {
-                      setSelectedKb('all');
-                      setMobileFilterOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-muted flex items-center justify-between text-sm transition-colors"
-                  >
-                    <span>All Knowledge Bases</span>
-                    {selectedKb === 'all' && <Check className="h-4 w-4 text-primary" />}
-                  </button>
+                  {/* Show "All Knowledge Bases" ONLY if 1 KB exists (no selection required) */}
+                  {kbCount === 1 && (
+                    <button
+                      onClick={() => {
+                        setSelectedKb('all');
+                        setMobileFilterOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-muted flex items-center justify-between text-sm transition-colors"
+                    >
+                      <span>All Knowledge Bases</span>
+                      {selectedKb === 'all' && <Check className="h-4 w-4 text-primary" />}
+                    </button>
+                  )}
                   {kbs?.map((kb) => (
                     <button
                       key={kb.id}
@@ -428,10 +481,13 @@ export default function ChatPage() {
             {/* Knowledge Base Filter (Desktop only) */}
             <Select value={selectedKb} onValueChange={setSelectedKb}>
               <SelectTrigger className="hidden md:flex w-[200px] h-10 text-xs font-bold rounded-xl bg-background/80 border-border">
-                <SelectValue placeholder="All Knowledge Bases" />
+                <SelectValue placeholder={requireKbSelection ? "Select a KB" : "All Knowledge Bases"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Knowledge Bases</SelectItem>
+                {/* Show "All Knowledge Bases" ONLY if 1 KB exists (no selection required) */}
+                {kbCount === 1 && (
+                  <SelectItem value="all">All Knowledge Bases</SelectItem>
+                )}
                 {kbs?.map((kb) => (
                   <SelectItem key={kb.id} value={kb.id}>{kb.display_name}</SelectItem>
                 ))}
@@ -585,6 +641,33 @@ export default function ChatPage() {
         <div className="border-t border-border/70 bg-muted/20 shrink-0">
           <div className="p-2 md:p-3 lg:p-4 relative">
             <div className="max-w-6xl mx-auto relative">
+              {/* KB Selection Required Message */}
+              {requireKbSelection && (!selectedKb || selectedKb === 'all') && !loadingKbRequirements && (
+                <div className="mb-3 p-3 md:p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                      Please select a knowledge base to continue
+                    </p>
+                    <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                      {kbRequirementMessage || 'You must select a specific knowledge base before you can chat.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* KB Selection Error Message */}
+              {kbSelectionError && (
+                <div className="mb-3 p-3 md:p-4 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-900 dark:text-red-200">
+                      {kbSelectionError}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="relative rounded-2xl border border-border/80 bg-card/60 shadow-lg px-4 md:px-4 lg:px-5 py-2 md:py-2 lg:py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all flex items-center gap-2 md:gap-3">
                 <Textarea
                   ref={textareaRef}
@@ -594,11 +677,13 @@ export default function ChatPage() {
                   placeholder={
                     rateLimitInfo?.isLimitReached
                       ? 'Daily message limit reached. Try again after reset time.'
+                      : requireKbSelection && (!selectedKb || selectedKb === 'all')
+                      ? 'Please select a knowledge base first...'
                       : selectedKb && selectedKb !== 'all'
                       ? `Ask about ${kbs?.find((k) => k.id === selectedKb)?.display_name}...`
                       : 'Ask anything across your knowledge bases...'
                   }
-                  disabled={rateLimitInfo?.isLimitReached}
+                  disabled={rateLimitInfo?.isLimitReached || (requireKbSelection && (!selectedKb || selectedKb === 'all'))}
                   className="flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 resize-none py-1.5 md:py-1.5 lg:py-1.5 px-0 text-sm md:text-sm lg:text-base font-medium placeholder:text-muted-foreground text-foreground disabled:opacity-50 disabled:cursor-not-allowed min-h-[40px] md:min-h-[40px] lg:min-h-[40px] overflow-y-auto break-words whitespace-normal"
                   rows={1}
                   spellCheck="true"
@@ -606,7 +691,7 @@ export default function ChatPage() {
 
                 <Button
                   onClick={() => handleSend()}
-                  disabled={!input.trim() || chatMutation.isPending || rateLimitInfo?.isLimitReached}
+                  disabled={!input.trim() || chatMutation.isPending || rateLimitInfo?.isLimitReached || (requireKbSelection && (!selectedKb || selectedKb === 'all'))}
                   size="icon"
                   className="gap-2 shadow-lg shadow-primary/25 h-8 md:h-8 lg:h-8 w-8 md:w-8 lg:w-8 font-bold rounded-full flex-shrink-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >

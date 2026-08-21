@@ -18,7 +18,17 @@ class GroqLLM(BaseLLM):
     client: Optional[Groq] = None
     _api_key_used: str = ""
 
-    def __init__(self):
+    def __init__(self, model_override: Optional[str] = None, temperature_override: Optional[float] = None):
+        """
+        Initialize Groq LLM client.
+        
+        Args:
+            model_override: Override the default model from settings
+            temperature_override: Override the default temperature from settings
+        """
+        self.model_override = model_override
+        self.temperature_override = temperature_override
+        
         api_key = get_live_setting("GROQ_API_KEY", "")
         if GroqLLM._client is None or GroqLLM._api_key_used != api_key:
             if not api_key:
@@ -45,12 +55,19 @@ class GroqLLM(BaseLLM):
         if active_client is None:
             raise LLMProviderError("Groq client uninitialized")
 
-        # Dynamically read current GROQ_MODEL from .env
-        configured_model = get_live_setting("GROQ_MODEL", "llama-3.3-70b-versatile")
+        # Dynamically read current GROQ_MODEL from .env or use override
+        configured_model = self.model_override or get_live_setting("GROQ_MODEL", "llama-3.2-90b-vision-preview")
+        temperature = self.temperature_override if self.temperature_override is not None else settings.TEMPERATURE
 
-        candidate_models = [configured_model, "llama-3.3-70b-versatile", "qwen/qwen3.6-27b", "llama-3.1-8b-instant"]
+        # Current working Groq models (verified available 2026-08-20)
+        candidate_models = [
+            configured_model,  
+            "llama-3.1-70b-versatile",       # Stable fallback          
+            "openai/gpt-oss-20b"
+        ]
         candidate_models = list(dict.fromkeys(candidate_models))
 
+        groq_error = None
         for model_name in candidate_models:
             logger.info(f"Sending generation request to Groq model '{model_name}'...")
 
@@ -59,7 +76,7 @@ class GroqLLM(BaseLLM):
                     response = active_client.chat.completions.create(
                         model=model_name,
                         messages=[{"role": "user", "content": prompt}],
-                        temperature=settings.TEMPERATURE,
+                        temperature=temperature,
                         top_p=settings.TOP_P,
                         max_tokens=settings.MAX_OUTPUT_TOKENS,
                     )
@@ -84,9 +101,10 @@ class GroqLLM(BaseLLM):
 
                 except Exception as e:
                     err_msg = str(e)
+                    groq_error = err_msg
                     logger.warning(f"Groq API attempt {attempt + 1}/{settings.MAX_RETRIES} for '{model_name}' failed: {err_msg[:120]}")
 
-                    if "404" in err_msg or "model_decommissioned" in err_msg or "not_found" in err_msg:
+                    if "404" in err_msg or "model_decommissioned" in err_msg or "not_found" in err_msg or "does not exist" in err_msg:
                         logger.info(f"Model '{model_name}' decommissioned/unavailable. Falling back to next model...")
                         break
 
@@ -95,4 +113,12 @@ class GroqLLM(BaseLLM):
                         logger.info(f"Rate limit hit on Groq. Sleeping {sleep_time}s before retry...")
                         time.sleep(sleep_time)
 
-        raise LLMProviderError("Groq LLM Provider failed across all models and retry attempts")
+        # Groq failed - try Gemini as fallback
+        logger.warning(f"Groq LLM failed ({groq_error}). Attempting Gemini fallback...")
+        try:
+            from app.llm.gemini import GeminiLLM
+            gemini_llm = GeminiLLM()
+            return gemini_llm.generate(prompt)
+        except Exception as gemini_err:
+            logger.error(f"Gemini fallback also failed: {gemini_err}")
+            raise LLMProviderError(f"All LLM providers failed. Groq: {groq_error}, Gemini: {gemini_err}")

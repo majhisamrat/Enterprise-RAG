@@ -31,6 +31,12 @@ class QdrantConnection:
         cls._offline_since = time.time()
 
     @classmethod
+    def reset(cls):
+        """Reset the circuit breaker (for recovery/testing)."""
+        cls._offline = False
+        cls._offline_since = 0.0
+
+    @classmethod
     def get_client(cls):
         if cls._client is None:
             cls._client = QdrantClient(

@@ -17,6 +17,7 @@ aiosqlite
 # Structured Queries (ATLAS)
 duckdb
 duckdb-engine
+sqlglot
 
 # Configuration
 pydantic
@@ -95,7 +96,10 @@ urllib3
 typing-extensions
 
 # Search
-elasticsearch
+elasticsearch==8.11.1
 
 # Server
 gunicorn
+sqlglot
+
+

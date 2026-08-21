@@ -36,7 +36,7 @@ class StructuredQueryExecutor:
         
         Returns:
             {
-                "result": aggregation_value,
+                "result": aggregation_value or full_row_for_groupby,
                 "operation": "SUM" (etc),
                 "semantic_metric": "quantity",
                 "sources": [
@@ -60,10 +60,15 @@ class StructuredQueryExecutor:
             # 2. Execute via DuckDB
             results = self.store.query(sql, params)
             
-            # 3. Extract result
+            # 3. Extract result based on operation type
             result_value = None
             if results and len(results) > 0:
-                result_value = results[0].get("result")
+                # For GROUP_BY, return entire row as dict so formatter can extract date
+                if plan.operation.value == "GROUP_BY":
+                    result_value = dict(results[0])  # Return full row as dict
+                else:
+                    # For aggregations, extract the aggregation result
+                    result_value = results[0].get("result")
             
             # 4. Build provenance
             sources = self._build_provenance(plan, schemas)
@@ -99,23 +104,65 @@ class StructuredQueryExecutor:
             if not schema:
                 continue
             
-            # Get original filename
+            # Get original filename from upload relationship
             filename = "unknown"
-            if schema.upload:
-                filename = schema.upload.original_filename or "unknown"
-            
-            # Get physical metric column
-            physical_metric = None
-            if plan.semantic_metric:
-                physical_metric = resolve_semantic_column(plan.semantic_metric, schema)
+            try:
+                if hasattr(schema, 'upload') and schema.upload:
+                    filename = schema.upload.original_filename or schema.upload.filename or "unknown"
+            except Exception as e:
+                logger.warning(f"Could not get filename for {upload_id}: {e}")
             
             sources.append({
-                "upload_id": str(upload_id),
                 "filename": filename,
-                "semantic_metric": plan.semantic_metric.value if plan.semantic_metric else None,
-                "physical_metric": physical_metric,
-                "sheet_name": schema.sheet_name,
-                "schema_version": schema.schema_version,
+                "upload_id": str(upload_id),
             })
+        
+        logger.info(f"Built provenance with {len(sources)} sources: {sources}")
+        return sources
+
+
+    def execute_raw_sql(
+    self,
+    sql: str,
+    schemas: List[StructuredFileSchema],
+    metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """PHASE 8: Execute validated raw SQL from Qwen generator"""
+        import time
+        start = time.perf_counter()
+
+        try:
+            results = self.store.query(sql, {})
+            result_value = results[0] if results and len(results) > 0 else None
+
+            # Build clean sources list with filenames
+            sources = []
+            for s in schemas:
+                filename = "unknown"
+                try:
+                    if hasattr(s, 'upload') and s.upload:
+                        filename = s.upload.original_filename or s.upload.filename or "unknown"
+                except Exception as e:
+                    logger.warning(f"Could not get filename for {s.upload_id}: {e}")
+                
+                sources.append({
+                    "filename": filename,
+                    "upload_id": str(s.upload_id),
+                })
+            
+            logger.info(f"Raw SQL execution succeeded with {len(sources)} sources: {sources}")
+
+            return {
+                "result": result_value,
+                "sql": sql,
+                "sources": sources,
+                "status": "success",
+                "query_time_ms": (time.perf_counter() - start) * 1000,
+                **(metadata or {})
+            }
+        except Exception as e:
+            logger.error(f"Raw SQL execution failed: {e}")
+            return {"result": None, "error": str(e), "status": "error", "sql": sql}
+
         
         return sources

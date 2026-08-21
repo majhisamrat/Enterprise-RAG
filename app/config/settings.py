@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     MINIO_ENDPOINT: Optional[str] = "http://localhost:9000"
+    
+    # Structured Data Store (DuckDB)
+    DUCKDB_PATH: str = "data/duckdb"
+    STRUCTURED_MAX_SIZE_MB: int = 100  # Max CSV/XLSX size for structured queries
+    STRUCTURED_MAX_ROWS: int = 1_000_000  # Max row count
 
     # Relational Database (PostgreSQL)
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/enterprise_rag"
@@ -68,11 +73,11 @@ class Settings(BaseSettings):
     RERANKER_MODEL_NAME: str = "BAAI/bge-reranker-large"
     ENABLE_RERANKER: bool = False
     RERANKER_MAX_CANDIDATES: int = 6
-    MAX_RETRIEVAL_RESULTS: int = 5
+    MAX_RETRIEVAL_RESULTS: int = 50
 
     # LLM Provider (Groq / Gemini)
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "qwen/qwen3.6-27b"
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.0-flash"
     LLM_PROVIDER: str = "groq"
@@ -80,6 +85,11 @@ class Settings(BaseSettings):
     TOP_P: float = 0.95
     MAX_OUTPUT_TOKENS: int = 2048
     MAX_RETRIES: int = 3
+    
+    # Code Generation LLM (for structured queries/SQL generation)
+    LLM_CODEGEN_MODEL_PROVIDER: Optional[str] = None  # "groq" | "gemini" | None (uses general model)
+    LLM_CODEGEN_MODEL: Optional[str] = None  # e.g., "qwen2.5-coder-32b-instruct"
+    LLM_CODEGEN_TEMPERATURE: float = 0.1  # Lower temperature for deterministic SQL generation
 
     # Mem0 Long-Term Memory (Optional)
     MEM0_API_KEY: str = ""

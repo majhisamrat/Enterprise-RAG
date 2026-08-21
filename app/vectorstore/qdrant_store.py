@@ -74,13 +74,17 @@ class QdrantVectorStore(BaseVectorStore):
                 kb_info = f" for KB {knowledge_base_id}" if knowledge_base_id else " (default)"
                 logger.info(f"🚀 Creating Qdrant collection '{collection_name}'{kb_info}...")
                 
+                # CRITICAL: Use wait=True to ensure collection is ready before returning
                 client.create_collection(
                     collection_name=collection_name,
                     vectors_config=VectorParams(
                         size=settings.EMBEDDING_DIMENSION,
                         distance=Distance.COSINE,
                     ),
+                    timeout=30,  # 30 second timeout for creation
                 )
+                
+                logger.info(f"✅ Collection '{collection_name}' created and ready")
                 
                 # Create payload indexes for fast filtering
                 try:
@@ -333,12 +337,36 @@ class QdrantVectorStore(BaseVectorStore):
                     limit=limit,
                 )
             except Exception as search_error:
-                # Log detailed error for debugging
-                logger.error(f"Qdrant query_points failed for collection '{collection_name}': {search_error}")
-                logger.debug(f"Query embedding dimension: {len(query_embedding)}")
-                logger.debug(f"Collection exists check passed - error must be in the query")
-                # Return empty instead of crashing
-                return []
+                # Check if this is a collection-not-found (404) error
+                error_str = str(search_error).lower()
+                if "404" in error_str or "not found" in error_str:
+                    logger.warning(
+                        f"Collection '{collection_name}' not found (404). "
+                        f"This may be a transient issue. Attempting recovery..."
+                    )
+                    # Don't mark offline for 404 - try to recover by recreating collection
+                    if knowledge_base_id:
+                        try:
+                            logger.info(f"Recovery: Recreating collection '{collection_name}'...")
+                            self._ensure_collection(knowledge_base_id)
+                            # Retry the query once
+                            results = client.query_points(
+                                collection_name=collection_name,
+                                query=query_embedding,
+                                query_filter=query_filter,
+                                limit=limit,
+                            )
+                        except Exception as recovery_error:
+                            logger.error(f"Recovery attempt failed: {recovery_error}")
+                            return []
+                    else:
+                        return []
+                else:
+                    # Other errors - mark offline
+                    logger.error(f"Qdrant query_points failed for collection '{collection_name}': {search_error}")
+                    logger.debug(f"Query embedding dimension: {len(query_embedding)}")
+                    QdrantConnection.mark_offline()
+                    return []
 
             formatted_results = []
             for pt in results.points:

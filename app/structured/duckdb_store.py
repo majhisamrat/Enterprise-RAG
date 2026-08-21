@@ -99,8 +99,8 @@ class StructuredDataStore:
         
         # Create table from dataframe
         try:
-            # DuckDB's insert_into method is more efficient than to_table
-            self.conn.from_df(dataframe).create(table_name, replace=True)
+            # DuckDB's create method
+            self.conn.from_df(dataframe).create(table_name)
             
             logger.success(
                 f"Created DuckDB table '{table_name}': "

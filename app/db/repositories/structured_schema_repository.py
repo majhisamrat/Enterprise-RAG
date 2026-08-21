@@ -42,9 +42,12 @@ class StructuredSchemaRepository:
         skip: int = 0,
         limit: int = 100,
     ) -> List[StructuredFileSchema]:
-        """List all schemas in a knowledge base."""
+        """List all schemas in a knowledge base with eager-loaded upload relationship."""
+        from sqlalchemy.orm import selectinload
+        
         stmt = (
             select(StructuredFileSchema)
+            .options(selectinload(StructuredFileSchema.upload))  # Eager-load upload
             .where(StructuredFileSchema.knowledge_base_id == knowledge_base_id)
             .order_by(StructuredFileSchema.created_at.desc())
             .offset(skip)

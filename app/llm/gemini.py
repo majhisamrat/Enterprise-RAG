@@ -14,47 +14,47 @@ from app.utils.logger import logger
 class GeminiLLM(BaseLLM):
     """Production-grade Gemini LLM provider using modern google-genai SDK."""
 
-    _client: Optional[genai.Client] = None
-    client: Optional[genai.Client] = None
-
-    def __init__(self):
-        if GeminiLLM._client is None:
-            if not settings.GEMINI_API_KEY:
-                logger.warning("GEMINI_API_KEY is not set. Gemini client calls may fail.")
-            else:
-                logger.info("Initializing Gemini client with google-genai SDK...")
-                GeminiLLM._client = genai.Client(api_key=settings.GEMINI_API_KEY)
-                logger.success("Gemini client initialized successfully.")
-        self.client = GeminiLLM._client
+    def __init__(self, model_override: Optional[str] = None, temperature_override: Optional[float] = None):
+        """
+        Initialize Gemini LLM client.
+        
+        Args:
+            model_override: Override the default model from settings
+            temperature_override: Override the default temperature from settings
+        """
+        self.model_override = model_override
+        self.temperature_override = temperature_override
+        
+        if not settings.GEMINI_API_KEY:
+            logger.warning("GEMINI_API_KEY is not set. Gemini client calls may fail.")
+        else:
+            logger.info("Initializing Gemini client with google-genai SDK...")
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            logger.success("Gemini client initialized successfully.")
 
     def generate(self, prompt: str) -> LLMResponse:
         """Generate response from Gemini API with automatic model fallback and rate limit retry backoff."""
-        if self.client is None:
-            if settings.GEMINI_API_KEY:
-                GeminiLLM._client = genai.Client(api_key=settings.GEMINI_API_KEY)
-                self.client = GeminiLLM._client
-            else:
-                raise LLMProviderError("Gemini API Key missing")
+        if not settings.GEMINI_API_KEY:
+            raise LLMProviderError("Gemini API Key missing")
 
-        active_client = self.client
-        if active_client is None:
-            raise LLMProviderError("Gemini client uninitialized")
-
-        # Candidate models ordered by priority
-        candidate_models = [settings.GEMINI_MODEL, "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+        # Candidate models ordered by priority (use override if provided)
+        base_model = self.model_override or settings.GEMINI_MODEL
+        candidate_models = [base_model, "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
         # Deduplicate preserving order
         candidate_models = list(dict.fromkeys(candidate_models))
+        
+        temperature = self.temperature_override if self.temperature_override is not None else settings.TEMPERATURE
 
         for model_name in candidate_models:
             logger.info(f"Attempting generation with Gemini model '{model_name}'...")
 
             for attempt in range(settings.MAX_RETRIES):
                 try:
-                    response = active_client.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(
+                        prompt,
                         generation_config=genai.types.GenerationConfig(
-                            temperature=settings.TEMPERATURE,
+                            temperature=temperature,
                             top_p=settings.TOP_P,
                             max_output_tokens=settings.MAX_OUTPUT_TOKENS,
                         ),

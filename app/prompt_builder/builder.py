@@ -21,7 +21,7 @@ class PromptBuilder(BasePromptBuilder):
 
         for idx, doc in enumerate(documents, start=1):
             doc_id = doc.get("document_id", "UnknownDoc")
-            title = doc.get("title") or doc.get("document", "Document")
+            title = doc.get("document_name") or doc.get("title") or doc.get("document", "Document")
             page = doc.get("page_number") or doc.get("page", 1)
             text = doc.get("text", "").strip()
 

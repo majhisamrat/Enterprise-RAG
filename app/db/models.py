@@ -385,7 +385,7 @@ class StructuredFileSchema(Base, UUIDMixin, TimestampMixin):
     schema_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # Increment on re-ingest
     columns: Mapped[dict] = mapped_column(JSON, nullable=False)  # List of column metadata dicts from schema_discovery.py
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     
     # Relationships
     upload: Mapped[Upload] = relationship("Upload", foreign_keys=[upload_id])

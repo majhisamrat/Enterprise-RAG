@@ -193,17 +193,22 @@ class SchemaAwareQueryPlanner:
         return None
     
     def _detect_date_filter(self, query: str) -> Optional[Dict[str, Any]]:
-        """Detect date filters in query."""
+        """Detect date filters in query with resolution of ambiguous dates."""
+        from datetime import datetime
+        
         # Simple patterns for common date queries
         
-        # "on August 15" or "on 15-08-26"
-        date_match = re.search(r"on\s+(\w+\s+\d+|\d+-\d+-\d+)", query, re.IGNORECASE)
+        # "on August 15" or "on 15-08-26" or "august 8"
+        date_match = re.search(r"(?:on\s+)?(\w+\s+\d+|\d+-\d+-\d+)", query, re.IGNORECASE)
         if date_match:
-            date_str = date_match.group(1)
-            return {
-                "operator": DateOperator.EQUALS.value,
-                "value": date_str,
-            }
+            date_str = date_match.group(1).strip()
+            resolved_date = self._resolve_date(date_str, query)
+            if resolved_date:
+                return {
+                    "operator": DateOperator.EQUALS.value,
+                    "value": resolved_date,
+                    "original": date_str,
+                }
         
         # "from X to Y" (date range)
         range_match = re.search(
@@ -216,10 +221,115 @@ class SchemaAwareQueryPlanner:
             end_date = range_match.group(2).strip()
             return {
                 "operator": DateOperator.BETWEEN.value,
-                "start": start_date,
-                "end": end_date,
+                "start": self._resolve_date(start_date, query),
+                "end": self._resolve_date(end_date, query),
             }
         
+        return None
+    
+    def _resolve_date(self, date_str: str, context_query: str) -> Optional[str]:
+        """
+        Resolve ambiguous dates to ISO format (YYYY-MM-DD).
+        
+        Examples:
+        - "August 8" → "2026-08-08" (assuming current year from context)
+        - "08-08-26" → "2026-08-08" (YY assumed from context)
+        - "8/8" → "2026-08-08"
+        
+        Strategy:
+        1. Try parsing with common patterns
+        2. If month/day without year: infer year from context (default to 2026 for this system)
+        3. If ambiguous YY format: assume 20xx
+        
+        Args:
+            date_str: Date string to resolve
+            context_query: Full query for context clues
+        
+        Returns:
+            ISO date string (YYYY-MM-DD) or None if unresolvable
+        """
+        from datetime import datetime
+        import dateutil.parser as dateparser
+        
+        # Clean the input
+        date_str = date_str.strip().lower()
+        
+        # Extract year hint from context if present
+        year_match = re.search(r'\b(20\d{2})\b', context_query)
+        context_year = int(year_match.group(1)) if year_match else 2026  # Default to 2026
+        
+        try:
+            # Try parsing with dateutil (handles many formats)
+            parsed = dateparser.parse(date_str, default=datetime(context_year, 1, 1))
+            if parsed:
+                # If only month/day provided, dateutil uses default year
+                # Check if we need to override year
+                if parsed.year == 1900 or len(date_str) < 6:  # Short format without year
+                    parsed = parsed.replace(year=context_year)
+                
+                return parsed.strftime("%Y-%m-%d")
+        except Exception as e:
+            logger.debug(f"Date parsing failed for '{date_str}': {e}")
+        
+        # Manual pattern matching as fallback
+        
+        # Pattern: "Month Day" (e.g., "August 8", "aug 15")
+        month_day_match = re.match(r'(\w+)\s+(\d+)', date_str)
+        if month_day_match:
+            month_str = month_day_match.group(1)
+            day = int(month_day_match.group(2))
+            
+            month_map = {
+                'jan': 1, 'january': 1,
+                'feb': 2, 'february': 2,
+                'mar': 3, 'march': 3,
+                'apr': 4, 'april': 4,
+                'may': 5,
+                'jun': 6, 'june': 6,
+                'jul': 7, 'july': 7,
+                'aug': 8, 'august': 8,
+                'sep': 9, 'sept': 9, 'september': 9,
+                'oct': 10, 'october': 10,
+                'nov': 11, 'november': 11,
+                'dec': 12, 'december': 12,
+            }
+            
+            month = month_map.get(month_str[:3])
+            if month:
+                try:
+                    date_obj = datetime(context_year, month, day)
+                    return date_obj.strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
+        
+        # Pattern: "M/D" or "M-D" (e.g., "8/8", "08-08")
+        slash_date = re.match(r'(\d{1,2})[/-](\d{1,2})$', date_str)
+        if slash_date:
+            month = int(slash_date.group(1))
+            day = int(slash_date.group(2))
+            try:
+                date_obj = datetime(context_year, month, day)
+                return date_obj.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+        
+        # Pattern: "YY-MM-DD" or "YY/MM/DD" (e.g., "26-08-08")
+        yy_date = re.match(r'(\d{2})[/-](\d{1,2})[/-](\d{1,2})$', date_str)
+        if yy_date:
+            yy = int(yy_date.group(1))
+            mm = int(yy_date.group(2))
+            dd = int(yy_date.group(3))
+            
+            # Assume 20xx for years 00-99
+            yyyy = 2000 + yy
+            
+            try:
+                date_obj = datetime(yyyy, mm, dd)
+                return date_obj.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+        
+        logger.warning(f"Could not resolve date: '{date_str}'")
         return None
     
     def _select_compatible_uploads(

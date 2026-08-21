@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import TenantContext, get_current_user, get_tenant_context
 from app.db.models import ChatSession, User
 from app.db.repositories.chat_repository import ChatRepository
+from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
 from app.db.session import get_db
 from app.utils.logger import app_logger
 from app.utils.rate_limiter import ChatRateLimiter
@@ -412,6 +413,23 @@ async def chat(
             )
 
         orchestrator_instance = get_orchestrator()
+        
+        # NEW: Validate KB selection for multi-KB environments
+        # If user has multiple KBs, they MUST select one
+        kb_repo = KnowledgeBaseRepository(db)
+        user_kbs = await kb_repo.get_by_organization(tenant_context.organization_id, skip=0, limit=1000)
+        
+        if len(user_kbs) > 1 and not kb_uuid:
+            # Multiple KBs exist but none selected - BLOCK chat
+            app_logger.warning(
+                f"Multi-KB environment detected ({len(user_kbs)} KBs) but no KB selected. Blocking query."
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Please select a Knowledge Base to continue. You have {len(user_kbs)} available Knowledge Bases. "
+                       f"Select 'All Knowledge Bases' in the filter to see them."
+            )
+        
         response = await orchestrator_instance.chat(
             query=request.query,
             organization_id=tenant_context.organization_id,
@@ -436,3 +454,63 @@ async def chat(
     except Exception as e:
         app_logger.exception(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+
+# NEW ENDPOINT: Check KB requirements for the user
+@router.get("/kb-requirements")
+async def get_kb_requirements(
+    current_user: User = Depends(get_current_user),
+    tenant_context: TenantContext = Depends(get_tenant_context),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Check if user has multiple KBs and needs to select one before chatting.
+    
+    Returns:
+        {
+            "kb_count": int,
+            "require_kb_selection": bool,  # true if count > 1
+            "message": str,
+            "kbs": []  # List of available KBs (for filter dropdown)
+        }
+    """
+    try:
+        kb_repo = KnowledgeBaseRepository(db)
+        user_kbs = await kb_repo.get_by_organization(tenant_context.organization_id, skip=0, limit=1000)
+        
+        require_selection = len(user_kbs) > 1
+        
+        message = ""
+        if len(user_kbs) == 0:
+            message = "No Knowledge Bases available. Please create one first."
+        elif require_selection:
+            message = f"You have {len(user_kbs)} Knowledge Bases. Please select one to continue."
+        else:
+            message = f"You have 1 Knowledge Base. Chat is ready."
+        
+        app_logger.info(
+            f"KB Requirements: user={current_user.id}, kb_count={len(user_kbs)}, require_selection={require_selection}"
+        )
+        
+        return {
+            "kb_count": len(user_kbs),
+            "require_kb_selection": require_selection,
+            "message": message,
+            "kbs": [
+                {
+                    "id": str(kb.id),
+                    "name": kb.display_name,
+                    "display_name": kb.display_name,
+                    "description": kb.description or "",
+                }
+                for kb in user_kbs
+            ]
+        }
+    
+    except Exception as e:
+        app_logger.exception(f"KB requirements check failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

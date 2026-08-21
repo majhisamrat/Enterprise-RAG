@@ -27,6 +27,155 @@ class RAGOrchestrator(BaseOrchestrator):
     @property
     def llm(self):
         return LLMProvider.load()
+    
+    def _format_structured_answer(self, result: Dict[str, Any], original_query: str) -> str:
+        """
+        Format structured query result into natural language answer.
+        Always shows DATE + RESULT for queries asking "which day"
+        
+        Args:
+            result: Execution result from StructuredQueryExecutor
+            original_query: User's original question
+        
+        Returns:
+            Natural language answer with DATE and RESULT clearly visible
+        """
+        value = result.get("result")
+        operation = result.get("operation", "QUERY")
+        semantic_metric = result.get("semantic_metric", "value")
+        
+        logger.info(f"_format_structured_answer: operation={operation}, value_type={type(value)}, value={value}")
+        
+        query_lower = original_query.lower()
+        is_which_day_query = "which day" in query_lower or "what day" in query_lower
+        
+        # Handle SELECT_ALL - returns full row(s) not aggregated
+        if operation == "SELECT_ALL":
+            if isinstance(value, dict):
+                # Single row result
+                formatted_lines = []
+                formatted_lines.append("Data retrieved for the requested date:")
+                
+                # Format each column nicely
+                for col, val in value.items():
+                    if isinstance(val, (int, float)) and val > 100:
+                        formatted_val = f"₹{val:,.2f}"
+                    else:
+                        formatted_val = str(val)
+                    formatted_lines.append(f"  • {col}: {formatted_val}")
+                
+                return "\n".join(formatted_lines[:10])  # Limit to 10 lines
+            
+            elif isinstance(value, list) and len(value) > 0:
+                # Multiple rows
+                formatted_lines = [f"Data retrieved ({len(value)} record(s)):"]
+                
+                for idx, row in enumerate(value[:5], 1):  # Show first 5 rows
+                    if isinstance(row, dict):
+                        row_parts = []
+                        for col, val in row.items():
+                            if isinstance(val, (int, float)) and val > 100:
+                                formatted_val = f"₹{val:,.2f}"
+                            else:
+                                formatted_val = str(val)
+                            row_parts.append(f"{col}={formatted_val}")
+                        formatted_lines.append(f"{idx}. {', '.join(row_parts)}")
+                
+                return "\n".join(formatted_lines[:10])  # Limit to 10 lines
+            
+            else:
+                return f"Data retrieved: {value}"
+        
+        # Handle aggregation operations
+        if value is None:
+            return "No data found for this query."
+        
+        # Extract numeric value from dict if needed
+        actual_value = value
+        date_val = None
+        
+        if isinstance(value, dict):
+            logger.info(f"Value is dict with keys: {list(value.keys())}")
+            
+            # Try to extract date
+            date_val = value.get("date") or value.get("Date") or value.get("day") or value.get("Day")
+            if not date_val:
+                for key in value.keys():
+                    if key.lower() in ['date', 'day', 'date_column', 'period', 'when']:
+                        date_val = value.get(key)
+                        break
+            
+            logger.info(f"Extracted date_val: {date_val}")
+            
+            # Try to find numeric value
+            for key, val in value.items():
+                if isinstance(val, (int, float)):
+                    actual_value = val
+                    break
+            
+            logger.info(f"Extracted actual_value: {actual_value}")
+        
+        if actual_value is None:
+            return "No data found for this query."
+        
+        # Format numeric value
+        if isinstance(actual_value, (int, float)):
+            if actual_value > 100:
+                formatted_value = f"₹{actual_value:,.2f}"
+            else:
+                formatted_value = str(int(actual_value))
+        else:
+            formatted_value = str(actual_value)
+        
+        # ============ PRIORITY: "WHICH DAY" QUERIES ============
+        # If user asked "which day", ALWAYS show DATE + VALUE at top
+        if is_which_day_query and date_val is not None:
+            logger.info(f"Formatting 'which day' query with date_val={date_val}, value={formatted_value}")
+            
+            # Detect intent
+            if "highest" in query_lower or "best" in query_lower or "maximum" in query_lower:
+                return f"August {date_val}, 2026: ₹{formatted_value} (highest {semantic_metric})"
+            elif "lowest" in query_lower or "worst" in query_lower or "least" in query_lower or "minimum" in query_lower:
+                return f"August {date_val}, 2026: ₹{formatted_value} (lowest {semantic_metric})"
+            else:
+                return f"August {date_val}, 2026: ₹{formatted_value}"
+        
+        # ============ STANDARD FORMATTING BY OPERATION ============
+        if operation == "SUM":
+            if date_val:
+                return f"August {date_val}, 2026: ₹{formatted_value}"
+            return f"Total: ₹{formatted_value}"
+        
+        elif operation == "COUNT":
+            if date_val:
+                return f"August {date_val}, 2026: {formatted_value} items"
+            return f"Total count: {formatted_value}"
+        
+        elif operation == "AVG":
+            if date_val:
+                return f"August {date_val}, 2026: ₹{formatted_value} (average)"
+            return f"Average: ₹{formatted_value}"
+        
+        elif operation == "MIN":
+            if date_val:
+                return f"August {date_val}, 2026: ₹{formatted_value} (minimum)"
+            return f"Minimum: ₹{formatted_value}"
+        
+        elif operation == "MAX":
+            if date_val:
+                return f"August {date_val}, 2026: ₹{formatted_value} (maximum)"
+            return f"Maximum: ₹{formatted_value}"
+        
+        elif operation == "GROUP_BY":
+            if date_val:
+                return f"August {date_val}, 2026: ₹{formatted_value}"
+            return f"Result: ₹{formatted_value}"
+        
+        else:
+            # Fallback
+            if date_val:
+                return f"August {date_val}, 2026: ₹{formatted_value}"
+            return f"Result: ₹{formatted_value}"
 
     async def chat(
         self,
@@ -130,6 +279,175 @@ class RAGOrchestrator(BaseOrchestrator):
             f"needed={rewrite_needed} | type={rewrite_type} | "
             f"history_length={rewrite_result.get('history_length', 0)}"
         )
+        
+        # PHASE 4: Route query BEFORE retrieval (structured vs semantic)
+        from app.orchestrator.query_router import route_query
+        
+        query_route = route_query(rewritten_query)
+        logger.info(f"Query routed to: {query_route}")
+        
+        # Handle structured queries
+        if query_route == "structured" and knowledge_base_id and db_session:
+            from app.structured.query_planner import SchemaAwareQueryPlanner
+            from app.structured.plan_compiler import SafeSQLCompiler
+            from app.structured.structured_executor import StructuredQueryExecutor
+            from app.structured.sql_generator import LLMSQLGenerator
+            from app.structured.sql_validator import validate_sql, SQLValidationError
+            from app.db.repositories.structured_schema_repository import StructuredSchemaRepository
+            
+            logger.info("Processing as STRUCTURED query...")
+            
+            try:
+                # Get available schemas for this KB
+                schema_repo = StructuredSchemaRepository(db_session)
+                available_schemas = await schema_repo.list_by_kb(knowledge_base_id, skip=0, limit=100)
+                
+                if not available_schemas:
+                    logger.info("No structured schemas found in KB, falling back to semantic route")
+                else:
+                    # Plan the query
+                    planner = SchemaAwareQueryPlanner()
+                    plan = planner.plan(rewritten_query, available_schemas)
+                    
+                    # PHASE 8: Qwen fallback when planner cannot handle query
+                    if plan is None:
+                        logger.info("Planner returned no plan, trying Qwen SQL generator fallback...")
+                        
+                        try:
+                            # Generate SQL via LLM
+                            sql_generator = LLMSQLGenerator()
+                            generated_sql, sql_metadata = sql_generator.generate(
+                                rewritten_query,
+                                available_schemas
+                            )
+                            
+                            # Validate generated SQL
+                            allowed_tables = {
+                                f"kb_{str(s.knowledge_base_id).replace('-', '')[:8]}_upload_{str(s.upload_id).replace('-', '')[:8]}" + 
+                                (f"_{s.sheet_name}" if s.sheet_name else "")
+                                for s in available_schemas
+                            }
+                            validate_sql(generated_sql, allowed_tables)
+                            
+                            # Execute validated SQL
+                            executor = StructuredQueryExecutor()
+                            result = executor.execute_raw_sql(
+                                generated_sql,
+                                available_schemas,
+                                metadata=sql_metadata
+                            )
+                            
+                            if result.get("status") == "success":
+                                answer = self._format_structured_answer(result, query)
+                                latency_ms = (time.perf_counter() - start) * 1000.0
+                                
+                                # Persist to DB if session present
+                                if session_id and db_session:
+                                    chat_repo = ChatRepository(db_session)
+                                    
+                                    user_msg = ChatMessage(
+                                        session_id=session_id,
+                                        sender_role="user",
+                                        content=query,
+                                        tokens_used=len(query.split()),
+                                    )
+                                    await chat_repo.add_message(user_msg)
+                                    
+                                    assistant_msg = ChatMessage(
+                                        session_id=session_id,
+                                        sender_role="assistant",
+                                        content=answer,
+                                        tokens_used=len(answer.split()),
+                                    )
+                                    await chat_repo.add_message(assistant_msg)
+                                    await db_session.commit()
+                                
+                                logger.success(f"Structured query (Qwen fallback) completed in {latency_ms:.2f}ms")
+                                
+                                return {
+                                    "answer": answer,
+                                    "session_id": str(session_id) if session_id else None,
+                                    "knowledge_base_id": str(knowledge_base_id),
+                                    "sources": result.get("sources", []),
+                                    "metadata": {
+                                        "route": "structured",
+                                        "method": "qwen_fallback",
+                                        "operation": result.get("operation"),
+                                        "semantic_metric": result.get("semantic_metric"),
+                                        "latency_ms": round(latency_ms, 2),
+                                        "sql_metadata": sql_metadata,
+                                        "query_rewriting": {
+                                            "original_query": query,
+                                            "rewritten_query": rewritten_query if rewrite_needed else None,
+                                            "rewrite_needed": rewrite_needed,
+                                            "rewrite_type": rewrite_type,
+                                        },
+                                    },
+                                }
+                        
+                        except (SQLValidationError, ValueError) as e:
+                            logger.warning(f"Qwen SQL generation/validation failed: {e}, falling back to semantic route")
+                    
+                    else:
+                        # Execute the plan (standard planner path)
+                        executor = StructuredQueryExecutor()
+                        schemas_dict = {str(s.upload_id): s for s in available_schemas}
+                        result = executor.execute(plan, schemas_dict)
+                        
+                        # Format structured response
+                        if result.get("status") == "success":
+                            answer = self._format_structured_answer(result, query)
+                            
+                            latency_ms = (time.perf_counter() - start) * 1000.0
+                            
+                            # Persist to DB if session present
+                            if session_id and db_session:
+                                chat_repo = ChatRepository(db_session)
+                                
+                                user_msg = ChatMessage(
+                                    session_id=session_id,
+                                    sender_role="user",
+                                    content=query,
+                                    tokens_used=len(query.split()),
+                                )
+                                await chat_repo.add_message(user_msg)
+                                
+                                assistant_msg = ChatMessage(
+                                    session_id=session_id,
+                                    sender_role="assistant",
+                                    content=answer,
+                                    tokens_used=len(answer.split()),
+                                )
+                                await chat_repo.add_message(assistant_msg)
+                                await db_session.commit()
+                            
+                            logger.success(f"Structured query completed in {latency_ms:.2f}ms")
+                            
+                            return {
+                                "answer": answer,
+                                "session_id": str(session_id) if session_id else None,
+                                "knowledge_base_id": str(knowledge_base_id),
+                                "sources": result.get("sources", []),
+                                "metadata": {
+                                    "route": "structured",
+                                    "method": "planner",
+                                    "operation": result.get("operation"),
+                                    "semantic_metric": result.get("semantic_metric"),
+                                    "latency_ms": round(latency_ms, 2),
+                                    "query_rewriting": {
+                                        "original_query": query,
+                                        "rewritten_query": rewritten_query if rewrite_needed else None,
+                                        "rewrite_needed": rewrite_needed,
+                                        "rewrite_type": rewrite_type,
+                                    },
+                                },
+                            }
+            
+            except Exception as e:
+                logger.warning(f"Structured query failed, falling back to semantic: {e}")
+
+        # If structured route failed or not applicable, continue with semantic route
+        logger.info("Processing as SEMANTIC query (fallback or default route)...")
 
         allowed_file_names: Optional[set] = None
         allowed_upload_ids: Optional[set] = None
@@ -241,6 +559,16 @@ class RAGOrchestrator(BaseOrchestrator):
         # 5. Generate LLM Answer via Gemini 2.5 Flash
         llm_resp = self.llm.generate(prompt)
 
+        # Strip any <think> tags that might appear in output
+        answer_text = llm_resp.answer
+        if "<think>" in answer_text or "</think>" in answer_text:
+            # Remove thinking blocks
+            answer_text = answer_text.replace("<think>", "").replace("</think>", "").strip()
+            # Clean up any leftover internal reasoning
+            lines = [line.strip() for line in answer_text.split("\n") if line.strip()]
+            answer_text = "\n".join(lines)
+        
+        llm_resp.answer = answer_text
 
         latency_ms = (time.perf_counter() - start) * 1000.0
 

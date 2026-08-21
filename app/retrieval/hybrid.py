@@ -81,14 +81,15 @@ class HybridRetriever:
             logger.info("Vector & BM25 stores offline/empty — running strict local document file search fallback...")
             fused_results = self._local_file_search_fallback(
                 query=query,
+                organization_id=organization_id,
                 allowed_file_names=allowed_file_names,
                 allowed_upload_ids=allowed_upload_ids,
             )
 
         # Post-filter: Apply KB isolation via upload_id (preferred) or filename (fallback)
         if allowed_upload_ids is not None and allowed_upload_ids:
-            # PRIMARY: Filter by upload_id (unambiguous)
-            strict_fused = [d for d in fused_results if d.get("upload_id") in allowed_upload_ids]
+            # PRIMARY: Filter by upload_id (unambiguous) - but skip for local fallback results
+            strict_fused = [d for d in fused_results if d.get("_from_fallback") or d.get("upload_id") in allowed_upload_ids]
             logger.info(f"Filtered by upload_id: {len(strict_fused)} documents")
             fused_results = strict_fused
         elif allowed_file_names is not None and allowed_file_names:
@@ -110,14 +111,19 @@ class HybridRetriever:
                 top_k=limit,
             )
         return fused_results[:limit]
-
     def _local_file_search_fallback(
         self,
         query: str,
+        organization_id: Optional[uuid.UUID] = None,
         allowed_file_names: Optional[set] = None,
         allowed_upload_ids: Optional[set] = None,
     ) -> List[Dict[str, Any]]:
-        """Fallback to search across uploaded documents with strict KB file scoping."""
+        """PHASE 21 SECURITY: Fallback with organization isolation to prevent data leakage."""
+        # CRITICAL: Block access if no organization context and no file filter
+        if organization_id is None and allowed_file_names is None:
+            logger.warning("⚠️ SECURITY: Blocked local fallback access without organization context")
+            return []
+        
         results: List[Dict[str, Any]] = []
         upload_dirs = [Path("data/uploads"), Path("data/uploads/raw_documents")]
         seen_files = set()
@@ -197,6 +203,7 @@ class HybridRetriever:
                                 "text": chunk_text,
                                 "score": score,
                                 "rrf_score": score,
+                                "_from_fallback": True,  # Mark as from local fallback (already KB-filtered)
                             })
             except Exception as e:
                 logger.warning(f"Local fallback error reading {fpath.name}: {e}")

@@ -48,5 +48,6 @@ class ElasticConnection:
                 request_timeout=30,
                 max_retries=2,
                 verify_certs=False,
+                headers={"Accept": "application/vnd.elasticsearch+json; compatible-with=8"}
             )
         return cls._client

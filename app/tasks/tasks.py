@@ -28,17 +28,122 @@ def process_document_ingestion_task(
     kb_uuid = uuid.UUID(kb_id) if kb_id else None
 
     async def _ingest():
+        from pathlib import Path
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
         from sqlalchemy.orm import sessionmaker
         from app.config.settings import settings
         from app.services.ingestion_service import IngestionService
         from app.db.repositories.upload_repository import UploadRepository
+        from app.db.repositories.structured_schema_repository import StructuredSchemaRepository
+        from app.structured.schema_discovery import SchemaDiscoveryEngine
+        from app.structured.duckdb_store import StructuredDataStore
+        import pandas as pd
 
-        db_url = str(settings.DATABASE_URL)
-        engine = create_async_engine(db_url, echo=False)
+        # Try PostgreSQL, fallback to SQLite
+        try:
+            db_url = str(settings.DATABASE_URL)
+            engine = create_async_engine(db_url, echo=False)
+            # Test connection
+            async with engine.connect() as conn:
+                await conn.execute("SELECT 1")
+        except Exception as e:
+            logger.warning(f"PostgreSQL unavailable in Celery: {e}. Using SQLite.")
+            db_url = "sqlite+aiosqlite:///./data/enterprise_rag.db"
+            engine = create_async_engine(db_url, echo=False)
+        
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         async with async_session() as session:
+            file_ext = Path(file_path).suffix.lower()
+            
+            # PHASE 2: Structured data handling for CSV/XLSX
+            if file_ext in ['.csv', '.xlsx', '.xls']:
+                logger.info(f"Detected structured file: {file_ext} - running schema discovery")
+                
+                try:
+                    # 1. Load data with pandas
+                    if file_ext == '.csv':
+                        df = pd.read_csv(file_path)
+                        sheets = {None: df}
+                    else:  # .xlsx or .xls
+                        xlsx_file = pd.ExcelFile(file_path)
+                        sheets = {name: xlsx_file.parse(name) for name in xlsx_file.sheet_names}
+                    
+                    # 2. Discover schema for each sheet
+                    schema_engine = SchemaDiscoveryEngine()
+                    structured_repo = StructuredSchemaRepository(session)
+                    duckdb_store = StructuredDataStore()
+                    
+                    total_rows = 0
+                    for sheet_name, dataframe in sheets.items():
+                        logger.info(f"Processing sheet '{sheet_name}': {len(dataframe)} rows, {len(dataframe.columns)} columns")
+                        
+                        # Discover schema
+                        schema_metadata = schema_engine.discover(dataframe, sheet_name=sheet_name)
+                        
+                        # Convert schema to JSON-serializable list format (not dict with keys)
+                        columns_list = [
+                            meta.to_dict()
+                            for col_name, meta in schema_metadata.items()
+                        ]
+                        
+                        # 3. Persist schema to database
+                        if kb_uuid and upload_uuid:
+                            await structured_repo.upsert_for_upload(
+                                upload_id=upload_uuid,
+                                knowledge_base_id=kb_uuid,
+                                columns=columns_list,
+                                sheet_name=sheet_name,
+                            )
+                            logger.success(f"Persisted schema for sheet '{sheet_name}': {len(columns_list)} columns")
+                        
+                        # 4. Load data into DuckDB
+                        if kb_uuid and upload_uuid:
+                            table_name = duckdb_store.write_table(
+                                upload_id=upload_uuid,
+                                kb_id=kb_uuid,
+                                dataframe=dataframe,
+                                sheet_name=sheet_name,
+                            )
+                            logger.success(f"Loaded {len(dataframe)} rows into DuckDB table '{table_name}'")
+                        
+                        total_rows += len(dataframe)
+                    
+                    # Close DuckDB connection
+                    duckdb_store.close()
+                    
+                    # 5. Update upload status
+                    if upload_uuid:
+                        upload_repo = UploadRepository(session)
+                        await upload_repo.update_status(str(upload_uuid), "completed")
+                        await upload_repo.update_vector_counts(
+                            upload_uuid,
+                            page_count=1,  # CSV has no pages
+                            chunk_count=total_rows,
+                            total_vectors=0,  # No vectors for structured files
+                        )
+                        await session.commit()
+                    
+                    logger.success(f"Structured file ingestion complete: {total_rows} total rows across {len(sheets)} sheets")
+                    
+                    return {
+                        "document_id": str(upload_uuid),
+                        "title": title or Path(file_path).name,
+                        "sheets": len(sheets),
+                        "rows": total_rows,
+                        "status": "indexed",
+                        "type": "structured",
+                    }
+                
+                except Exception as e:
+                    logger.error(f"Structured file ingestion failed: {e}")
+                    if upload_uuid:
+                        upload_repo = UploadRepository(session)
+                        await upload_repo.update_status(str(upload_uuid), "failed")
+                        await session.commit()
+                    raise
+            
+            # Existing semantic document ingestion (PDF/DOCX/PPTX)
             service = IngestionService(db_session=session)
             result = await service.ingest_document(
                 file_path=file_path,
@@ -55,9 +160,9 @@ def process_document_ingestion_task(
                 await upload_repo.update_status(str(upload_uuid), "completed")
                 await upload_repo.update_vector_counts(
                     upload_uuid,
-                    result.get("chunks", 0),
-                    result.get("chunks", 0),
-                    result.get("chunks", 0),
+                    page_count=result.get("pages", 0),
+                    chunk_count=result.get("chunks", 0),
+                    total_vectors=result.get("chunks", 0),
                 )
                 await session.commit()
 
@@ -175,6 +280,7 @@ def reindex_kb_uploads_task(kb_id: str, organization_id: str) -> Dict[str, Any]:
                         await upload_repo.update_status(upload.id, "completed")
                         await upload_repo.update_vector_counts(
                             upload_id=upload.id,
+                            page_count=result.get("pages", 0),
                             chunk_count=result.get("chunks", 0),
                             total_vectors=result.get("chunks", 0),
                         )
