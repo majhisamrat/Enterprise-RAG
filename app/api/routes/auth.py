@@ -44,6 +44,21 @@ class RegisterRequest(BaseModel):
     department: str = "Engineering"
 
 
+class RegisterInitRequest(BaseModel):
+    """Initial registration request - stores temp data and sends OTP"""
+    name: str
+    email: EmailStr
+    password: str
+    organization_name: str = "Default Enterprise"
+    department: str = "Engineering"
+
+
+class RegisterVerifyRequest(BaseModel):
+    """Complete registration after OTP verification"""
+    email: EmailStr
+    otp: str
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -103,6 +118,142 @@ async def send_otp(req: SendOTPRequest, db: AsyncSession = Depends(get_db)):
     
     logger.info(f"OTP sent to registered user: {req.email}")
     return {"success": True, "message": message}
+
+
+@router.post("/register-init")
+async def register_init(req: RegisterInitRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Initialize registration: store temp data in Redis and send OTP.
+    User is NOT created yet - only after OTP verification.
+    """
+    # Check if email already registered
+    user_repo = UserRepository(db)
+    existing_user = await user_repo.get_by_email(req.email.lower())
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Store registration data in Redis with OTP TTL (5 minutes)
+    redis_key = f"pending_registration:{req.email.lower()}"
+    registration_data = {
+        "name": req.name,
+        "email": req.email.lower(),
+        "password": req.password,
+        "organization_name": req.organization_name,
+        "department": req.department,
+    }
+    
+    # Save registration data
+    import json
+    saved = await redis_manager.set_cache(
+        redis_key, 
+        json.dumps(registration_data), 
+        ttl=5 * 60  # 5 minutes, same as OTP
+    )
+    if not saved:
+        raise HTTPException(status_code=400, detail="Failed to process registration")
+    
+    # Generate and send OTP
+    success, message = await OTPService.create_and_send_otp(req.email)
+    if not success:
+        # Clean up Redis on OTP send failure
+        await redis_manager.delete_cache(redis_key)
+        raise HTTPException(status_code=400, detail=message)
+    
+    logger.info(f"Registration initiated for {req.email}, OTP sent")
+    return {"success": True, "message": f"OTP sent to {req.email}"}
+
+
+@router.post("/register-verify", response_model=TokenResponse)
+async def register_verify(req: RegisterVerifyRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Complete registration after OTP verification.
+    Creates user account if OTP is valid.
+    """
+    # Verify OTP
+    is_valid = await OTPService.verify_otp(req.email, req.otp)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP code")
+    
+    # Get pending registration data from Redis
+    redis_key = f"pending_registration:{req.email.lower()}"
+    registration_data_json = await redis_manager.get_cache(redis_key)
+    
+    if not registration_data_json:
+        raise HTTPException(
+            status_code=400, 
+            detail="Registration data expired. Please start registration again."
+        )
+    
+    # Parse registration data (might be dict or string depending on Redis store)
+    import json
+    try:
+        if isinstance(registration_data_json, dict):
+            registration_data = registration_data_json
+        else:
+            registration_data = json.loads(registration_data_json)
+    except (json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid registration data")
+    
+    # Check if email is still available
+    user_repo = UserRepository(db)
+    existing_user = await user_repo.get_by_email(req.email.lower())
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create organization and user
+    org_domain = await _resolve_org_domain(req.email, db)
+    
+    try:
+        org = Organization(
+            name=registration_data["organization_name"],
+            domain=org_domain,
+        )
+        db.add(org)
+        await db.flush()
+        
+        new_user = User(
+            organization_id=org.id,
+            name=registration_data["name"],
+            email=registration_data["email"],
+            password_hash=hash_password(registration_data["password"]),
+            department=registration_data["department"],
+            auth_provider="local",
+            email_verified=True,  # Email is verified via OTP
+            status="active",
+        )
+        await user_repo.create(new_user)
+        
+        # Clean up Redis
+        await redis_manager.delete_cache(redis_key)
+        
+        logger.info(f"User registered with email verification: {req.email}")
+        
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Registration failed due to constraint conflict. Email or domain might already be in use.",
+        )
+    
+    # Create tokens and session
+    access_token = create_access_token({"sub": str(new_user.id), "org": str(org.id)})
+    refresh_token = create_refresh_token({"sub": str(new_user.id)})
+    
+    user_session = UserSession(
+        user_id=new_user.id,
+        refresh_token=refresh_token,
+        expires_at=datetime.now(timezone.utc),
+    )
+    db.add(user_session)
+    await db.commit()
+    
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=str(new_user.id),
+        organization_id=str(org.id),
+        email_verified=True,
+    )
 
 
 @router.post("/verify-otp", response_model=TokenResponse)
