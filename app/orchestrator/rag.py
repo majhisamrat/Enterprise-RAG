@@ -465,7 +465,27 @@ class RAGOrchestrator(BaseOrchestrator):
                 kb_name = kb_obj.display_name
                 await kb_repo.update_last_queried(knowledge_base_id)
 
+            # Get all uploads for this KB
             kb_uploads = await upload_repo.get_by_kb(knowledge_base_id, skip=0, limit=1000)
+            
+            # IMPROVEMENT: If KB has multiple uploads (old CSV + new PDF), prioritize the most recent PDF
+            # This solves the issue where old CSV data (EMP-0001-EMP-0070) was mixing with new PDF data (EMP-00100+)
+            if len(kb_uploads) > 1:
+                # Sort by created_at, most recent first
+                kb_uploads_sorted = sorted(kb_uploads, key=lambda u: u.created_at if u.created_at else '', reverse=True)
+                
+                # Prefer PDF uploads (document format) over CSV (structured format)
+                pdf_uploads = [u for u in kb_uploads_sorted if u.file_type and 'pdf' in u.file_type.lower()]
+                
+                # If we have recent PDF uploads, use only the most recent one
+                if pdf_uploads:
+                    kb_uploads = [pdf_uploads[0]]  # Use only the most recent PDF
+                    logger.info(f"Using most recent PDF upload: {pdf_uploads[0].original_filename}")
+                else:
+                    # No PDFs, use the most recent upload regardless of type
+                    kb_uploads = [kb_uploads_sorted[0]]
+                    logger.info(f"Using most recent upload: {kb_uploads_sorted[0].original_filename}")
+            
             allowed_file_names = set()
             allowed_upload_ids = set()
             for u in kb_uploads:

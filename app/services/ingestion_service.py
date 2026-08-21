@@ -8,6 +8,8 @@ from app.db.models import Document, DocumentMetadata
 from app.db.repositories.document_repository import DocumentRepository
 from app.embeddings.embedder import Embedder
 from app.ingestion.chunking.recursive import RecursiveChunker
+from app.ingestion.chunking.table_aware import TableAwareChunker
+from app.ingestion.chunking.chunker import Chunker
 from app.ingestion.pipeline import IngestionPipeline
 from app.keyword_search.index import ElasticsearchIndexer
 from app.vectorstore.qdrant_store import QdrantVectorStore
@@ -16,7 +18,7 @@ from app.utils.exceptions import IngestionError
 
 # ── Shared singletons: loaded once, reused across all requests ──
 _shared_pipeline: Optional[IngestionPipeline] = None
-_shared_chunker: Optional[RecursiveChunker] = None
+_shared_chunker: Optional[Chunker] = None
 _shared_embedder: Optional[Embedder] = None
 
 
@@ -27,10 +29,13 @@ def _get_pipeline() -> IngestionPipeline:
     return _shared_pipeline
 
 
-def _get_chunker() -> RecursiveChunker:
+def _get_chunker() -> Chunker:
     global _shared_chunker
     if _shared_chunker is None:
-        _shared_chunker = RecursiveChunker(chunk_size=1000, chunk_overlap=200)
+        # Use 'pdf_structured' strategy for PDFs with structured data (employee records, etc.)
+        # Detects record patterns (EMP-XXXX) and chunks one record per chunk
+        # This ensures all 100 employees are retrievable, not just ~70
+        _shared_chunker = Chunker(strategy="pdf_structured")
     return _shared_chunker
 
 

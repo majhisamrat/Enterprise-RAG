@@ -6,6 +6,7 @@ from app.ingestion.chunking.parent_child import ParentChildChunker
 from app.ingestion.chunking.hierarchical import HierarchicalChunker
 from app.ingestion.chunking.table_aware import TableAwareChunker
 from app.ingestion.chunking.markdown import MarkdownChunker
+from app.ingestion.chunking.pdf_structured import PDFStructuredChunker
 from app.ingestion.schemas import (
     ChunkedDocument,
     ParsedDocument,
@@ -25,6 +26,7 @@ class Chunker:
             "hierarchical": HierarchicalChunker(),
             "table": TableAwareChunker(),
             "markdown": MarkdownChunker(),
+            "pdf_structured": PDFStructuredChunker(),
         }
 
         if self.strategy not in self.chunkers:
