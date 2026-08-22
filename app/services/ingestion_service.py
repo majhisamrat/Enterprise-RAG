@@ -88,7 +88,7 @@ class IngestionService:
             parsed_doc = self.pipeline.process(str(path))
 
             # 2. Recursive Chunking
-            chunked_doc = self.chunker.chunk(parsed_doc)
+            chunked_doc = self.chunker.process(parsed_doc)
 
             # 3. Generate Dense Embeddings
             embedded_doc = self.embedder.embed(chunked_doc)
