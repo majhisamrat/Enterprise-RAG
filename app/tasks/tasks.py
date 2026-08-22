@@ -39,17 +39,19 @@ def process_document_ingestion_task(
         from app.structured.duckdb_store import StructuredDataStore
         import pandas as pd
 
-        # Try PostgreSQL, fallback to SQLite
+        # Use PostgreSQL (not SQLite in Celery)
+        from sqlalchemy import text
+        db_url = str(settings.DATABASE_URL)
+        engine = create_async_engine(db_url, echo=False)
+        
+        # Test connection with proper SQL expression
         try:
-            db_url = str(settings.DATABASE_URL)
-            engine = create_async_engine(db_url, echo=False)
-            # Test connection
             async with engine.connect() as conn:
-                await conn.execute("SELECT 1")
+                await conn.execute(text("SELECT 1"))
+            logger.info("PostgreSQL connection successful in Celery worker")
         except Exception as e:
-            logger.warning(f"PostgreSQL unavailable in Celery: {e}. Using SQLite.")
-            db_url = "sqlite+aiosqlite:///./data/enterprise_rag.db"
-            engine = create_async_engine(db_url, echo=False)
+            logger.error(f"PostgreSQL connection failed in Celery: {e}")
+            raise
         
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
