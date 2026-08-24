@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from typing import Any, Dict, Optional
+from pathlib import Path
 from app.utils.logger import logger
 
 from app.tasks.celery_app import celery_app
@@ -49,9 +50,23 @@ def process_document_ingestion_task(
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
             logger.info("PostgreSQL connection successful in Celery worker")
+            use_db = True
         except Exception as e:
-            logger.error(f"PostgreSQL connection failed in Celery: {e}")
-            raise
+            logger.warning(f"PostgreSQL connection failed in Celery: {e}. Using fallback SQLite.")
+            # Use SQLite fallback with proper schema
+            db_url = "sqlite+aiosqlite:///./data/enterprise_rag_celery.db"
+            engine = create_async_engine(db_url, echo=False)
+            
+            # Create tables if they don't exist
+            try:
+                from app.db.base import Base
+                async with engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+                logger.info("SQLite fallback database schema created")
+                use_db = True
+            except Exception as schema_err:
+                logger.warning(f"Failed to create SQLite schema: {schema_err}")
+                use_db = False
         
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -177,9 +192,18 @@ def process_document_ingestion_task(
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    result = loop.run_until_complete(_ingest())
-    logger.success(f"Celery task completed: Ingested file {file_path}")
-    return result
+    try:
+        result = loop.run_until_complete(_ingest())
+        logger.success(f"Celery task completed: Ingested file {file_path}")
+        return result
+    except Exception as e:
+        logger.error(f"Celery task failed: {e}")
+        return {
+            "document_id": str(upload_uuid),
+            "title": title or Path(file_path).name,
+            "status": "failed",
+            "error": str(e),
+        }
 
 
 
@@ -199,6 +223,7 @@ def reindex_kb_uploads_task(kb_id: str, organization_id: str) -> Dict[str, Any]:
     async def _reindex():
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
         from sqlalchemy.orm import sessionmaker
+        from sqlalchemy import text
         from app.config.settings import settings
         from app.db.repositories.upload_repository import UploadRepository
         from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
@@ -207,8 +232,30 @@ def reindex_kb_uploads_task(kb_id: str, organization_id: str) -> Dict[str, Any]:
         from app.keyword_search.index import ElasticsearchIndexer
         from pathlib import Path
 
-        # Setup DB session for this task
-        engine = create_async_engine(str(settings.DATABASE_URL), echo=False)
+        # Setup DB session for this task with fallback to SQLite
+        db_url = str(settings.DATABASE_URL)
+        engine = create_async_engine(db_url, echo=False)
+        
+        # Test connection first
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            logger.info("PostgreSQL connection successful in reindex task")
+        except Exception as e:
+            logger.warning(f"PostgreSQL connection failed in reindex task: {e}. Using fallback SQLite.")
+            # Use SQLite fallback with proper schema
+            db_url = "sqlite+aiosqlite:///./data/enterprise_rag_celery.db"
+            engine = create_async_engine(db_url, echo=False)
+            
+            # Create tables if they don't exist
+            try:
+                from app.db.base import Base
+                async with engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+                logger.info("SQLite fallback database schema created")
+            except Exception as schema_err:
+                logger.warning(f"Failed to create SQLite schema: {schema_err}")
+        
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         db = async_session()
 
