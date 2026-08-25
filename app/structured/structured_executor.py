@@ -66,8 +66,23 @@ class StructuredQueryExecutor:
                 # For GROUP_BY, return entire row as dict so formatter can extract date
                 if plan.operation.value == "GROUP_BY":
                     result_value = dict(results[0])  # Return full row as dict
+                # For MIN/MAX, also try to fetch the full row with that value
+                elif plan.operation.value in ["MIN", "MAX"]:
+                    agg_value = results[0].get("result")
+                    result_value = agg_value
+                    # Try to fetch full row that has this value
+                    try:
+                        logger.info(f"Fetching full row for {plan.operation.value} value: {agg_value}")
+                        full_row = self._fetch_full_row_for_value(plan, schemas, agg_value)
+                        if full_row:
+                            logger.info(f"Got full row: {full_row}")
+                            result_value = full_row
+                        else:
+                            logger.info(f"No full row found for {plan.operation.value}")
+                    except Exception as e:
+                        logger.warning(f"Could not fetch full row for {plan.operation.value}: {e}")
                 else:
-                    # For aggregations, extract the aggregation result
+                    # For other aggregations, extract the aggregation result
                     result_value = results[0].get("result")
             
             # 4. Build provenance
@@ -90,6 +105,82 @@ class StructuredQueryExecutor:
                 "error": str(e),
                 "status": "error",
             }
+    
+    def _fetch_full_row_for_value(
+        self,
+        plan: QueryPlan,
+        schemas: Dict[str, StructuredFileSchema],
+        agg_value: Any,
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch the full row that contains the min/max value."""
+        from app.structured.column_resolver import resolve_semantic_column
+        
+        try:
+            # Find the metric column across all tables
+            for upload_id in plan.candidate_uploads:
+                schema = schemas.get(upload_id)
+                if not schema:
+                    continue
+                
+                metric_col = resolve_semantic_column(plan.semantic_metric, schema)
+                if not metric_col:
+                    logger.warning(f"Could not resolve metric column for {plan.semantic_metric}")
+                    continue
+                
+                table_name = self._get_table_name(upload_id, schema)
+                if not table_name:
+                    logger.warning(f"Could not get table name for {upload_id}")
+                    continue
+                
+                try:
+                    # For MIN/MAX, use ORDER BY to get the row with min/max value
+                    # This handles floating point precision issues better than exact matching
+                    if plan.operation.value == "MIN":
+                        sql = f"SELECT * FROM {table_name} ORDER BY {metric_col} ASC LIMIT 1"
+                    else:  # MAX
+                        sql = f"SELECT * FROM {table_name} ORDER BY {metric_col} DESC LIMIT 1"
+                    
+                    logger.info(f"Fetching full row with SQL: {sql}")
+                    # Execute without parameters for ORDER BY queries
+                    result = self.store.conn.execute(sql).fetchall()
+                    if result and len(result) > 0:
+                        # Convert to dict
+                        columns = [desc[0] for desc in self.store.conn.description]
+                        row_dict = dict(zip(columns, result[0]))
+                        logger.info(f"Fetched full row for {plan.operation.value}: {row_dict}")
+                        return row_dict
+                except Exception as e:
+                    logger.warning(f"Failed to fetch full row from {table_name}: {e}")
+                    continue
+            
+            logger.warning(f"Could not fetch full row for {plan.operation.value} value {agg_value} from any upload")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to fetch full row: {e}")
+            return None
+    
+    def _get_table_name(self, upload_id: Any, schema: StructuredFileSchema) -> Optional[str]:
+        """Get DuckDB table name for an upload."""
+        try:
+            from uuid import UUID
+            if isinstance(upload_id, str):
+                upload_id = UUID(upload_id)
+            elif not isinstance(upload_id, UUID):
+                upload_id = UUID(str(upload_id))
+            
+            kb_id = schema.knowledge_base_id
+            if isinstance(kb_id, str):
+                kb_id = UUID(kb_id)
+            elif not isinstance(kb_id, UUID):
+                kb_id = UUID(str(kb_id))
+            
+            kb_short = str(kb_id).replace('-', '')[:8]
+            upload_short = str(upload_id).replace('-', '')[:8]
+            sheet_suffix = f"_{schema.sheet_name}" if hasattr(schema, 'sheet_name') and schema.sheet_name else ""
+            return f"kb_{kb_short}_upload_{upload_short}{sheet_suffix}"
+        except Exception as e:
+            logger.warning(f"Could not build table name for {upload_id}: {e}")
+            return None
     
     def _build_provenance(
         self,

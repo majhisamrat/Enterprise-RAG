@@ -10,7 +10,10 @@ import type {
 
 export const knowledgeApi = {
   list: (params?: { skip?: number; limit?: number; status?: string }) =>
-    apiClient.get<KnowledgeBase[]>('/knowledge', { params }).then((r) => r.data),
+    apiClient.get<KnowledgeBase[]>('/knowledge', { params }).then((r) => {
+      console.log('Knowledge list response:', r.data);
+      return Array.isArray(r.data) ? r.data : [];
+    }),
 
   getById: (id: string) =>
     apiClient.get<KnowledgeBase>(`/knowledge/${id}`).then((r) => r.data),

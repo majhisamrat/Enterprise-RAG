@@ -7,11 +7,13 @@ Provides KB creation, upload management, filtering, and statistics.
 
 import uuid
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import TenantContext, get_current_user, get_tenant_context
+from app.config.settings import settings
 from app.db.models import KnowledgeBase, Upload, User, BackgroundJob
 from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
 from app.db.repositories.upload_repository import UploadRepository
@@ -46,6 +48,9 @@ async def create_knowledge_base(
     - **name**: Unique identifier (e.g., "Sales_2026")
     - **display_name**: Human-readable name (e.g., "Sales Q1-Q4 2026")
     - **description**: Optional description
+    
+    **Limits:**
+    - Max 3 KBs per user (user must delete one to create more)
     """
     try:
         # Check if KB with same name exists
@@ -55,6 +60,32 @@ async def create_knowledge_base(
             raise HTTPException(
                 status_code=400,
                 detail=f"Knowledge base with name '{name}' already exists",
+            )
+
+        # Check KB limit (MAX 3 per user)
+        user_kbs = await kb_repo.get_by_user(current_user.id, tenant_context.organization_id, skip=0, limit=1000)
+        if len(user_kbs) >= settings.MAX_KB_PER_USER:
+            app_logger.warning(
+                f"KB limit reached for user {current_user.id}. "
+                f"Current KBs: {len(user_kbs)}/{settings.MAX_KB_PER_USER}"
+            )
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "Knowledge base limit exceeded",
+                    "message": f"You have reached the maximum limit of {settings.MAX_KB_PER_USER} knowledge bases. Please delete one to create more.",
+                    "current_kb_count": len(user_kbs),
+                    "max_kb_per_user": settings.MAX_KB_PER_USER,
+                    "user_kbs": [
+                        {
+                            "id": str(kb.id),
+                            "name": kb.name,
+                            "display_name": kb.display_name,
+                            "created_at": kb.created_at.isoformat(),
+                        }
+                        for kb in user_kbs
+                    ]
+                }
             )
 
         # Create new KB
@@ -79,6 +110,10 @@ async def create_knowledge_base(
             "description": kb.description,
             "status": kb.status,
             "created_at": kb.created_at.isoformat(),
+            "limit_info": {
+                "max_kb_per_user": settings.MAX_KB_PER_USER,
+                "current_kb_count": len(user_kbs) + 1,
+            }
         }
     except HTTPException:
         raise
@@ -211,21 +246,21 @@ async def delete_knowledge_base(
         if not kb or kb.organization_id != tenant_context.organization_id:
             raise HTTPException(status_code=404, detail="Knowledge base not found")
 
-        # Initialize vector store for Qdrant collection deletion
-        from app.vectorstore.qdrant_store import QdrantVectorStore
-        vector_store = QdrantVectorStore()
+        # Initialize vector store for Chroma collection deletion
+        from app.vectorstore.chroma_store import ChromaVectorStore
+        vector_store = ChromaVectorStore()
 
-        # Delete KB and associated Qdrant collection
+        # Delete KB and associated Chroma collection
         deleted_count = await kb_repo.delete_cascade(kb_uuid, vector_store=vector_store)
 
         if deleted_count > 0:
             await db.commit()
-            app_logger.info(f"Deleted knowledge base: {kb.name} (ID: {kb_uuid}) with Qdrant cleanup")
+            app_logger.info(f"Deleted knowledge base: {kb.name} (ID: {kb_uuid}) with Chroma cleanup")
 
             return {
                 "success": True,
                 "deleted_kb_id": str(kb_uuid),
-                "message": f"Deleted knowledge base '{kb.name}' and all related data including Qdrant vectors",
+                "message": f"Deleted knowledge base '{kb.name}' and all related data including Chroma vectors",
             }
         else:
             raise HTTPException(status_code=404, detail="Knowledge base not found")
@@ -260,6 +295,10 @@ async def upload_document_to_kb(
     - **display_name**: Optional display name (defaults to filename)
     - **tags**: Optional comma-separated tags
     - **background_processing**: Process async (default: true) or sync (false)
+    
+    **Limits:**
+    - Max 5 files per KB
+    - Oldest file auto-deleted when uploading 6th file to a KB
     """
     try:
         kb_uuid = uuid.UUID(kb_id)
@@ -297,6 +336,36 @@ async def upload_document_to_kb(
 
         if not kb or kb.organization_id != tenant_context.organization_id:
             raise HTTPException(status_code=404, detail="Knowledge base not found")
+
+        # Check per-KB upload limit (MAX 5 files per KB)
+        upload_repo = UploadRepository(db)
+        kb_uploads = await upload_repo.get_by_kb(kb_uuid, skip=0, limit=1000)
+        
+        if len(kb_uploads) >= settings.MAX_UPLOADS_PER_KB:
+            app_logger.warning(
+                f"Upload limit per KB reached for KB {kb_uuid}. "
+                f"Current uploads: {len(kb_uploads)}/{settings.MAX_UPLOADS_PER_KB}"
+            )
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "Upload limit per knowledge base exceeded",
+                    "message": f"You have reached the maximum limit of {settings.MAX_UPLOADS_PER_KB} files per knowledge base. Please delete a file to upload more.",
+                    "current_upload_count": len(kb_uploads),
+                    "max_uploads_per_kb": settings.MAX_UPLOADS_PER_KB,
+                    "kb_id": str(kb_uuid),
+                    "kb_name": kb.display_name,
+                    "current_uploads": [
+                        {
+                            "id": str(u.id),
+                            "filename": u.original_filename,
+                            "display_name": u.display_name,
+                            "created_at": u.created_at.isoformat(),
+                        }
+                        for u in kb_uploads
+                    ]
+                }
+            )
 
         # Validate file
         validate_extension(file.filename)
@@ -359,6 +428,10 @@ async def upload_document_to_kb(
                     "status": "PENDING",
                     "background_processing": True,
                     "job_id": job.id,
+                    "limit_info": {
+                        "max_uploads_per_kb": settings.MAX_UPLOADS_PER_KB,
+                        "current_upload_count": len(kb_uploads) + 1,
+                    }
                 }
             except Exception as cel_err:
                 app_logger.warning(f"Celery dispatch failed ({cel_err}). Falling back to sync ingestion...")
@@ -400,6 +473,10 @@ async def upload_document_to_kb(
                 "pages": result.get("pages"),
                 "chunks": result.get("chunks"),
                 "vectors": result.get("chunks"),
+                "limit_info": {
+                    "max_uploads_per_kb": settings.MAX_UPLOADS_PER_KB,
+                    "current_upload_count": len(kb_uploads) + 1,
+                }
             }
 
 

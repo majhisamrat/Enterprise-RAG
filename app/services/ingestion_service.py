@@ -12,7 +12,7 @@ from app.ingestion.chunking.table_aware import TableAwareChunker
 from app.ingestion.chunking.chunker import Chunker
 from app.ingestion.pipeline import IngestionPipeline
 from app.keyword_search.index import ElasticsearchIndexer
-from app.vectorstore.qdrant_store import QdrantVectorStore
+from app.vectorstore.chroma_store import ChromaVectorStore
 from app.utils.exceptions import IngestionError
 
 
@@ -55,7 +55,7 @@ class IngestionService:
         self.pipeline = _get_pipeline()
         self.chunker = _get_chunker()
         self.embedder = _get_embedder()
-        self.vector_store = QdrantVectorStore()
+        self.vector_store = ChromaVectorStore()
         self.elastic_index = ElasticsearchIndexer()
 
     async def ingest_document(
@@ -88,7 +88,7 @@ class IngestionService:
             parsed_doc = self.pipeline.process(str(path))
 
             # 2. Recursive Chunking
-            chunked_doc = self.chunker.chunk(parsed_doc)
+            chunked_doc = self.chunker.process(parsed_doc)
 
             # 3. Generate Dense Embeddings
             embedded_doc = self.embedder.embed(chunked_doc)

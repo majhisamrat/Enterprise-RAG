@@ -4,15 +4,15 @@ from loguru import logger
 
 from app.embeddings.embedder import Embedder
 from app.retrieval.base import BaseRetriever
-from app.vectorstore.qdrant_store import QdrantVectorStore
+from app.vectorstore.chroma_store import ChromaVectorStore
 
 
 class DenseRetriever(BaseRetriever):
-    """Dense vector retrieval using Qdrant with tenant and department filtering."""
+    """Dense vector retrieval using Chroma with tenant and department filtering."""
 
     def __init__(self):
         self.embedder = Embedder()
-        self.vector_store = QdrantVectorStore()
+        self.vector_store = ChromaVectorStore()
 
     def retrieve(
         self,

@@ -22,6 +22,9 @@ const queryClient = new QueryClient({
 export default function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+  console.log('App rendering...');
+  console.log('Google Client ID:', googleClientId ? 'Present' : 'Missing');
+
   if (!googleClientId) {
     console.warn('VITE_GOOGLE_CLIENT_ID is not set in .env');
   }

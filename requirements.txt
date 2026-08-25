@@ -52,7 +52,13 @@ huggingface_hub
 torch
 
 # Vector Search
-qdrant-client
+# PRIMARY: Chroma DB (lightweight, embedded vector store)
+chromadb
+
+# OPTIONAL: Qdrant (can be used if needed, now replaced by Chroma)
+# qdrant-client
+
+# OPTIONAL: FAISS (for local similarity search)
 faiss-cpu
 
 # Async

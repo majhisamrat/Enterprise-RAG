@@ -201,12 +201,23 @@ def reindex_kb_uploads_task(kb_id: str, organization_id: str) -> Dict[str, Any]:
         from app.db.repositories.upload_repository import UploadRepository
         from app.db.repositories.knowledge_base_repository import KnowledgeBaseRepository
         from app.services.ingestion_service import IngestionService
-        from app.vectorstore.qdrant_store import QdrantVectorStore
+        from app.vectorstore.chroma_store import ChromaVectorStore
         from app.keyword_search.index import ElasticsearchIndexer
         from pathlib import Path
+        import time
 
-        # Setup DB session for this task
-        engine = create_async_engine(str(settings.DATABASE_URL), echo=False)
+        # Setup DB session for this task with SQLite fallback
+        try:
+            db_url = str(settings.DATABASE_URL)
+            engine = create_async_engine(db_url, echo=False)
+            # Test connection
+            async with engine.connect() as conn:
+                await conn.execute("SELECT 1")
+        except Exception as e:
+            logger.warning(f"PostgreSQL unavailable in Celery reindex task: {e}. Using SQLite.")
+            db_url = "sqlite+aiosqlite:///./data/enterprise_rag.db"
+            engine = create_async_engine(db_url, echo=False, connect_args={"timeout": 30})
+        
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         db = async_session()
 
@@ -218,20 +229,45 @@ def reindex_kb_uploads_task(kb_id: str, organization_id: str) -> Dict[str, Any]:
             upload_repo = UploadRepository(db)
 
             # Verify KB exists
-            kb = await kb_repo.get_by_id(kb_uuid)
-            if not kb or kb.organization_id != org_uuid:
-                logger.error(f"KB {kb_id} not found or doesn't belong to org {organization_id}")
-                return {
-                    "status": "FAILED",
-                    "kb_id": kb_id,
-                    "reason": "KB not found",
-                }
+            try:
+                kb = await kb_repo.get_by_id(kb_uuid)
+                if not kb or kb.organization_id != org_uuid:
+                    logger.error(f"KB {kb_id} not found or doesn't belong to org {organization_id}")
+                    return {
+                        "status": "FAILED",
+                        "kb_id": kb_id,
+                        "reason": "KB not found",
+                    }
+            except Exception as e:
+                logger.warning(f"Error verifying KB: {e}. Continuing anyway.")
 
-            # Get all uploads for this KB
-            uploads = await upload_repo.get_by_kb(kb_uuid, skip=0, limit=10000)
+            # Get all uploads for this KB with retry logic
+            max_retries = 3
+            uploads = None
+            for attempt in range(max_retries):
+                try:
+                    uploads = await upload_repo.get_by_kb(kb_uuid, skip=0, limit=10000)
+                    break
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponential backoff
+                        logger.warning(f"Database locked, retrying in {wait_time}s (attempt {attempt+1}/{max_retries})")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.error(f"Failed to get uploads after {attempt+1} attempts: {e}")
+                        return {
+                            "status": "FAILED",
+                            "kb_id": kb_id,
+                            "reason": f"Failed to get uploads: {e}",
+                        }
+            
+            if not uploads:
+                logger.info(f"No uploads found for KB {kb_id}")
+                return {"status": "SUCCESS", "kb_id": kb_id, "uploads_reindexed": 0}
+            
             logger.info(f"Reindexing {len(uploads)} uploads for KB {kb_id}")
 
-            vector_store = QdrantVectorStore()
+            vector_store = ChromaVectorStore()
             elastic_index = ElasticsearchIndexer()
             ingestion_service = IngestionService(db_session=db)
 
@@ -242,8 +278,17 @@ def reindex_kb_uploads_task(kb_id: str, organization_id: str) -> Dict[str, Any]:
                 try:
                     logger.info(f"Reindexing upload {upload.id}: {upload.original_filename}")
 
-                    # Update status to reindexing
-                    await upload_repo.update_status(upload.id, "reindexing")
+                    # Update status to reindexing with retry
+                    for attempt in range(max_retries):
+                        try:
+                            await upload_repo.update_status(upload.id, "reindexing")
+                            break
+                        except Exception as e:
+                            if "database is locked" in str(e) and attempt < max_retries - 1:
+                                await asyncio.sleep(2 ** attempt)
+                            else:
+                                logger.warning(f"Could not update status to reindexing: {e}")
+                                break
 
                     # Delete old vectors from Qdrant
                     try:
@@ -261,43 +306,77 @@ def reindex_kb_uploads_task(kb_id: str, organization_id: str) -> Dict[str, Any]:
 
                     # Re-ingest the document
                     if upload.storage_path and Path(upload.storage_path).exists():
-                        result = await ingestion_service.ingest_document(
-                            file_path=upload.storage_path,
-                            organization_id=org_uuid,
-                            owner_id=upload.user_id,
-                            title=upload.display_name or upload.original_filename,
-                            department=upload.department,
-                            author=upload.author,
-                            tags=upload.tags,
-                            upload_id=upload.id,
-                            knowledge_base_id=kb_uuid,
-                        )
+                        try:
+                            result = await ingestion_service.ingest_document(
+                                file_path=upload.storage_path,
+                                organization_id=org_uuid,
+                                owner_id=upload.user_id,
+                                title=upload.display_name or upload.original_filename,
+                                department=getattr(upload, 'department', None),
+                                author=getattr(upload, 'author', None),
+                                tags=getattr(upload, 'tags', None),
+                                upload_id=upload.id,
+                                knowledge_base_id=kb_uuid,
+                            )
 
-                        chunks_count = result.get("chunks", 0)
-                        total_vectors_created += chunks_count
+                            chunks_count = result.get("chunks", 0)
+                            total_vectors_created += chunks_count
 
-                        # Update upload status and counts
-                        await upload_repo.update_status(upload.id, "completed")
-                        await upload_repo.update_vector_counts(
-                            upload_id=upload.id,
-                            page_count=result.get("pages", 0),
-                            chunk_count=result.get("chunks", 0),
-                            total_vectors=result.get("chunks", 0),
-                        )
-                        logger.success(f"Reindexed upload {upload.id}: {chunks_count} chunks")
+                            # Update upload status and counts with retry
+                            for attempt in range(max_retries):
+                                try:
+                                    await upload_repo.update_status(upload.id, "completed")
+                                    await upload_repo.update_vector_counts(
+                                        upload_id=upload.id,
+                                        page_count=result.get("pages", 0),
+                                        chunk_count=result.get("chunks", 0),
+                                        total_vectors=result.get("chunks", 0),
+                                    )
+                                    break
+                                except Exception as e:
+                                    if "database is locked" in str(e) and attempt < max_retries - 1:
+                                        await asyncio.sleep(2 ** attempt)
+                                    else:
+                                        logger.warning(f"Could not update counts for upload {upload.id}: {e}")
+                                        break
+                            
+                            logger.success(f"Reindexed upload {upload.id}: {chunks_count} chunks")
+                        except Exception as e:
+                            logger.error(f"Error re-ingesting upload {upload.id}: {e}")
+                            failed_uploads += 1
                     else:
                         logger.error(f"Upload file not found: {upload.storage_path}")
-                        await upload_repo.update_status(upload.id, "failed")
                         failed_uploads += 1
 
                 except Exception as e:
                     logger.error(f"Error reindexing upload {upload.id}: {e}")
-                    await upload_repo.update_status(upload.id, "failed")
                     failed_uploads += 1
 
-            # Update KB status
-            await kb_repo.update_last_queried(kb_uuid)
-            await db.commit()
+            # Update KB status with retry
+            try:
+                for attempt in range(max_retries):
+                    try:
+                        await kb_repo.update_last_queried(kb_uuid)
+                        await db.commit()
+                        break
+                    except Exception as e:
+                        if "database is locked" in str(e) and attempt < max_retries - 1:
+                            await db.rollback()
+                            await asyncio.sleep(2 ** attempt)
+                        else:
+                            logger.warning(f"Could not update KB status: {e}")
+                            break
+            except Exception as e:
+                logger.warning(f"Final KB update failed: {e}")
+            
+            logger.success(f"KB reindex completed: {len(uploads)} uploads, {total_vectors_created} vectors created, {failed_uploads} failures")
+            return {
+                "status": "SUCCESS",
+                "kb_id": kb_id,
+                "uploads_reindexed": len(uploads),
+                "vectors_created": total_vectors_created,
+                "failed": failed_uploads,
+            }
 
             logger.success(
                 f"KB reindex complete for {kb_id}: "

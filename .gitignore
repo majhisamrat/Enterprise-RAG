@@ -160,3 +160,6 @@ alembic/__pycache__/
 notes.md
 TODO.md
 FIXME.md
+
+# Frontend (separate deployment)
+frontend/

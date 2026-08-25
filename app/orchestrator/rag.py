@@ -28,6 +28,60 @@ class RAGOrchestrator(BaseOrchestrator):
     def llm(self):
         return LLMProvider.load()
     
+    def _parse_date_string(self, date_str: Any) -> tuple:
+        """
+        Parse date string to extract day, month, year.
+        
+        Handles formats like:
+        - "11-08-2026" (DD-MM-YYYY)
+        - "2026-08-11" (YYYY-MM-DD)
+        - "11" (just day number)
+        
+        Returns: (day, month_name, year) or (day_str, None, None) if can't parse
+        """
+        from datetime import datetime
+        
+        if date_str is None:
+            return (None, None, None)
+        
+        date_str = str(date_str).strip()
+        
+        # Try common date formats
+        formats = [
+            "%d-%m-%Y",  # 11-08-2026
+            "%Y-%m-%d",  # 2026-08-11
+            "%m/%d/%Y",  # 08/11/2026
+            "%d/%m/%Y",  # 11/08/2026
+        ]
+        
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(date_str, fmt)
+                month_name = dt.strftime("%B")  # "August"
+                return (dt.day, month_name, dt.year)
+            except ValueError:
+                continue
+        
+        # If just a number (day), return it as is
+        try:
+            day = int(date_str)
+            if 1 <= day <= 31:
+                return (day, None, None)
+        except ValueError:
+            pass
+        
+        # Can't parse - return as string
+        return (date_str, None, None)
+    
+    def _format_date_output(self, day: Any, month: str = None, year: int = None) -> str:
+        """Format date for output. Uses actual month/year if available, otherwise day only."""
+        if month and year:
+            return f"{month} {day}, {year}"
+        elif month:
+            return f"{month} {day}"
+        else:
+            return str(day)
+
     def _format_structured_answer(self, result: Dict[str, Any], original_query: str) -> str:
         """
         Format structured query result into natural language answer.
@@ -40,6 +94,23 @@ class RAGOrchestrator(BaseOrchestrator):
         Returns:
             Natural language answer with DATE and RESULT clearly visible
         """
+        # Currency-related column names
+        currency_keywords = {'revenue', 'cost', 'profit', 'price', 'amount', 'sales', 'total_revenue', 'total_cost', 'total_profit'}
+        
+        def should_format_as_currency(col_name: str) -> bool:
+            """Check if column should be formatted as currency."""
+            col_lower = col_name.lower()
+            return any(keyword in col_lower for keyword in currency_keywords)
+        
+        def format_number(val: float, col_name: str = "") -> str:
+            """Format number with currency symbol only if appropriate."""
+            if isinstance(val, (int, float)):
+                if val > 100 and should_format_as_currency(col_name):
+                    return f"₹{val:,.2f}"
+                else:
+                    return str(int(val)) if val == int(val) else str(val)
+            return str(val)
+        
         value = result.get("result")
         operation = result.get("operation", "QUERY")
         semantic_metric = result.get("semantic_metric", "value")
@@ -48,6 +119,7 @@ class RAGOrchestrator(BaseOrchestrator):
         
         query_lower = original_query.lower()
         is_which_day_query = "which day" in query_lower or "what day" in query_lower
+        is_extremity_query = any(word in query_lower for word in ["best", "highest", "lowest", "least", "worst", "maximum", "minimum", "greatest"])
         
         # Handle SELECT_ALL - returns full row(s) not aggregated
         if operation == "SELECT_ALL":
@@ -58,10 +130,7 @@ class RAGOrchestrator(BaseOrchestrator):
                 
                 # Format each column nicely
                 for col, val in value.items():
-                    if isinstance(val, (int, float)) and val > 100:
-                        formatted_val = f"₹{val:,.2f}"
-                    else:
-                        formatted_val = str(val)
+                    formatted_val = format_number(val, col)
                     formatted_lines.append(f"  • {col}: {formatted_val}")
                 
                 return "\n".join(formatted_lines[:10])  # Limit to 10 lines
@@ -74,10 +143,7 @@ class RAGOrchestrator(BaseOrchestrator):
                     if isinstance(row, dict):
                         row_parts = []
                         for col, val in row.items():
-                            if isinstance(val, (int, float)) and val > 100:
-                                formatted_val = f"₹{val:,.2f}"
-                            else:
-                                formatted_val = str(val)
+                            formatted_val = format_number(val, col)
                             row_parts.append(f"{col}={formatted_val}")
                         formatted_lines.append(f"{idx}. {', '.join(row_parts)}")
                 
@@ -93,89 +159,141 @@ class RAGOrchestrator(BaseOrchestrator):
         # Extract numeric value from dict if needed
         actual_value = value
         date_val = None
+        result_col_name = ""
         
         if isinstance(value, dict):
             logger.info(f"Value is dict with keys: {list(value.keys())}")
             
-            # Try to extract date
-            date_val = value.get("date") or value.get("Date") or value.get("day") or value.get("Day")
-            if not date_val:
-                for key in value.keys():
-                    if key.lower() in ['date', 'day', 'date_column', 'period', 'when']:
-                        date_val = value.get(key)
+            # Try to extract date - check multiple variations
+            for key in value.keys():
+                key_lower = key.lower()
+                if key_lower in ['date', 'day', 'date_column', 'period', 'when', 'date_time']:
+                    date_val = value.get(key)
+                    if date_val:
+                        logger.info(f"Found date from key '{key}': {date_val}")
                         break
+            
+            # If still no date, try the first string-like value that looks like a date
+            if not date_val:
+                for key, val in value.items():
+                    if isinstance(val, str) and any(c.isdigit() for c in val):
+                        # Looks like it might be a date (contains digits)
+                        if '-' in val or '/' in val:
+                            date_val = val
+                            logger.info(f"Inferred date from value '{key}': {date_val}")
+                            break
             
             logger.info(f"Extracted date_val: {date_val}")
             
-            # Try to find numeric value
+            # Try to find numeric value - prioritize the highest number (the metric)
+            max_numeric = None
+            max_key = None
             for key, val in value.items():
-                if isinstance(val, (int, float)):
-                    actual_value = val
-                    break
+                if isinstance(val, (int, float)) and (max_numeric is None or val > max_numeric):
+                    max_numeric = val
+                    max_key = key
             
-            logger.info(f"Extracted actual_value: {actual_value}")
+            if max_numeric is not None:
+                actual_value = max_numeric
+                result_col_name = max_key
+            
+            logger.info(f"Extracted actual_value: {actual_value} from column: {result_col_name}")
         
         if actual_value is None:
             return "No data found for this query."
         
-        # Format numeric value
-        if isinstance(actual_value, (int, float)):
-            if actual_value > 100:
-                formatted_value = f"₹{actual_value:,.2f}"
-            else:
-                formatted_value = str(int(actual_value))
-        else:
-            formatted_value = str(actual_value)
+        # Format numeric value - use column name to determine if currency
+        formatted_value = format_number(actual_value, result_col_name)
+        
+        # Parse the date to get day, month, year
+        day, month, year = self._parse_date_string(date_val)
+        date_formatted = self._format_date_output(day, month, year) if day else None
         
         # ============ PRIORITY: "WHICH DAY" QUERIES ============
         # If user asked "which day", ALWAYS show DATE + VALUE at top
-        if is_which_day_query and date_val is not None:
-            logger.info(f"Formatting 'which day' query with date_val={date_val}, value={formatted_value}")
+        if is_which_day_query and date_formatted is not None:
+            logger.info(f"Formatting 'which day' query with date_formatted={date_formatted}, value={formatted_value}")
             
-            # Detect intent
-            if "highest" in query_lower or "best" in query_lower or "maximum" in query_lower:
-                return f"August {date_val}, 2026: ₹{formatted_value} (highest {semantic_metric})"
-            elif "lowest" in query_lower or "worst" in query_lower or "least" in query_lower or "minimum" in query_lower:
-                return f"August {date_val}, 2026: ₹{formatted_value} (lowest {semantic_metric})"
+            # If we have a full row, show all details
+            if isinstance(value, dict) and len(value) > 1:
+                details_lines = [f"On {date_formatted}:"]
+                for col, val in value.items():
+                    col_formatted = format_number(val, col)
+                    details_lines.append(f"  • {col}: {col_formatted}")
+                
+                if "highest" in query_lower or "best" in query_lower or "maximum" in query_lower:
+                    return f"The highest {semantic_metric} was on {date_formatted}: {formatted_value}\n\n" + "\n".join(details_lines)
+                elif "lowest" in query_lower or "worst" in query_lower or "least" in query_lower or "minimum" in query_lower:
+                    return f"The lowest {semantic_metric} was on {date_formatted}: {formatted_value}\n\n" + "\n".join(details_lines)
+                else:
+                    return "\n".join(details_lines)
             else:
-                return f"August {date_val}, 2026: ₹{formatted_value}"
+                # Simple response without full row
+                if "highest" in query_lower or "best" in query_lower or "maximum" in query_lower:
+                    return f"The highest {semantic_metric} was on {date_formatted}: {formatted_value}"
+                elif "lowest" in query_lower or "worst" in query_lower or "least" in query_lower or "minimum" in query_lower:
+                    return f"The lowest {semantic_metric} was on {date_formatted}: {formatted_value}"
+                else:
+                    return f"On {date_formatted}, the {semantic_metric} was: {formatted_value}"
         
         # ============ STANDARD FORMATTING BY OPERATION ============
         if operation == "SUM":
-            if date_val:
-                return f"August {date_val}, 2026: ₹{formatted_value}"
-            return f"Total: ₹{formatted_value}"
+            if date_formatted:
+                return f"On {date_formatted}, the total {semantic_metric} was {formatted_value}."
+            return f"The total {semantic_metric} across all data is {formatted_value}."
         
         elif operation == "COUNT":
-            if date_val:
-                return f"August {date_val}, 2026: {formatted_value} items"
-            return f"Total count: {formatted_value}"
+            if date_formatted:
+                return f"On {date_formatted}, there were {formatted_value} items recorded."
+            return f"In total, {formatted_value} items were recorded."
         
         elif operation == "AVG":
-            if date_val:
-                return f"August {date_val}, 2026: ₹{formatted_value} (average)"
-            return f"Average: ₹{formatted_value}"
+            if date_formatted:
+                return f"On {date_formatted}, the average {semantic_metric} was {formatted_value}."
+            return f"The average {semantic_metric} across all data is {formatted_value}."
         
         elif operation == "MIN":
-            if date_val:
-                return f"August {date_val}, 2026: ₹{formatted_value} (minimum)"
-            return f"Minimum: ₹{formatted_value}"
+            # If we have a full row and it's asking for extremity, show details with date
+            if isinstance(value, dict) and len(value) > 1 and is_extremity_query:
+                details_lines = []
+                for col, val in value.items():
+                    col_formatted = format_number(val, col)
+                    details_lines.append(f"  • {col}: {col_formatted}")
+                
+                if date_formatted:
+                    return f"The minimum {semantic_metric} occurred on {date_formatted} with a value of {formatted_value}.\n\nDetails for that day:\n" + "\n".join(details_lines)
+                return f"The minimum {semantic_metric} is {formatted_value}.\n\nFull details:\n" + "\n".join(details_lines)
+            else:
+                if date_formatted:
+                    return f"On {date_formatted}, the minimum {semantic_metric} was {formatted_value}"
+                return f"The minimum {semantic_metric} recorded is {formatted_value}"
         
         elif operation == "MAX":
-            if date_val:
-                return f"August {date_val}, 2026: ₹{formatted_value} (maximum)"
-            return f"Maximum: ₹{formatted_value}"
+            # If we have a full row and it's asking for extremity, show details with date
+            if isinstance(value, dict) and len(value) > 1 and is_extremity_query:
+                details_lines = []
+                for col, val in value.items():
+                    col_formatted = format_number(val, col)
+                    details_lines.append(f"  • {col}: {col_formatted}")
+                
+                if date_formatted:
+                    return f"The maximum {semantic_metric} occurred on {date_formatted} with a value of {formatted_value}.\n\nDetails for that day:\n" + "\n".join(details_lines)
+                return f"The maximum {semantic_metric} is {formatted_value}.\n\nFull details:\n" + "\n".join(details_lines)
+            else:
+                if date_formatted:
+                    return f"On {date_formatted}, the maximum {semantic_metric} was {formatted_value}"
+                return f"The maximum {semantic_metric} recorded is {formatted_value}"
         
         elif operation == "GROUP_BY":
-            if date_val:
-                return f"August {date_val}, 2026: ₹{formatted_value}"
-            return f"Result: ₹{formatted_value}"
+            if date_formatted:
+                return f"On {date_formatted}: {formatted_value}"
+            return f"Result: {formatted_value}"
         
         else:
             # Fallback
-            if date_val:
-                return f"August {date_val}, 2026: ₹{formatted_value}"
-            return f"Result: ₹{formatted_value}"
+            if date_formatted:
+                return f"On {date_formatted}: {formatted_value}"
+            return f"Result: {formatted_value}"
 
     async def chat(
         self,
@@ -468,23 +586,15 @@ class RAGOrchestrator(BaseOrchestrator):
             # Get all uploads for this KB
             kb_uploads = await upload_repo.get_by_kb(knowledge_base_id, skip=0, limit=1000)
             
-            # IMPROVEMENT: If KB has multiple uploads (old CSV + new PDF), prioritize the most recent PDF
-            # This solves the issue where old CSV data (EMP-0001-EMP-0070) was mixing with new PDF data (EMP-00100+)
+            # Use ALL uploads for this KB (don't filter to most recent)
+            # This ensures queries like "best profit" search across all data
+            # Sort by created_at for reference, but include all
             if len(kb_uploads) > 1:
-                # Sort by created_at, most recent first
                 kb_uploads_sorted = sorted(kb_uploads, key=lambda u: u.created_at if u.created_at else '', reverse=True)
-                
-                # Prefer PDF uploads (document format) over CSV (structured format)
-                pdf_uploads = [u for u in kb_uploads_sorted if u.file_type and 'pdf' in u.file_type.lower()]
-                
-                # If we have recent PDF uploads, use only the most recent one
-                if pdf_uploads:
-                    kb_uploads = [pdf_uploads[0]]  # Use only the most recent PDF
-                    logger.info(f"Using most recent PDF upload: {pdf_uploads[0].original_filename}")
-                else:
-                    # No PDFs, use the most recent upload regardless of type
-                    kb_uploads = [kb_uploads_sorted[0]]
-                    logger.info(f"Using most recent upload: {kb_uploads_sorted[0].original_filename}")
+                logger.info(f"Using ALL {len(kb_uploads_sorted)} uploads for KB query: {[u.original_filename for u in kb_uploads_sorted]}")
+                kb_uploads = kb_uploads_sorted  # Keep all uploads, don't filter
+            else:
+                logger.info(f"Using single upload for KB: {kb_uploads[0].original_filename if kb_uploads else 'none'}")
             
             allowed_file_names = set()
             allowed_upload_ids = set()

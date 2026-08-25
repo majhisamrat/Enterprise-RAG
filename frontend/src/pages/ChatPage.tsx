@@ -450,7 +450,7 @@ export default function ChatPage() {
                       {selectedKb === 'all' && <Check className="h-4 w-4 text-primary" />}
                     </button>
                   )}
-                  {kbs?.map((kb) => (
+                  {kbs && Array.isArray(kbs) && kbs.map((kb) => (
                     <button
                       key={kb.id}
                       onClick={() => {
@@ -488,7 +488,7 @@ export default function ChatPage() {
                 {kbCount === 1 && (
                   <SelectItem value="all">All Knowledge Bases</SelectItem>
                 )}
-                {kbs?.map((kb) => (
+                {kbs && Array.isArray(kbs) && kbs.map((kb) => (
                   <SelectItem key={kb.id} value={kb.id}>{kb.display_name}</SelectItem>
                 ))}
               </SelectContent>

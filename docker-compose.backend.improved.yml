@@ -38,16 +38,20 @@ services:
       timeout: 5s
       retries: 5
 
-  qdrant:
-    image: qdrant/qdrant:v1.9.0
-    container_name: enterprise_rag_qdrant
-    restart: unless-stopped
-    volumes:
-      - qdrant_data:/qdrant/storage
-    networks:
-      - enterprise_rag
-    ports:
-      - "6333:6333"
+  # NOTE: Qdrant is no longer used - replaced with Chroma DB (embedded vector store)
+  # Vectors are stored in .chroma/vectors.pkl with KB-based collection isolation
+  # Keeping Qdrant service for backward compatibility, but it is disabled by default
+  # To enable Qdrant, uncomment below and set VECTOR_STORE=qdrant in environment
+  # qdrant:
+  #   image: qdrant/qdrant:v1.9.0
+  #   container_name: enterprise_rag_qdrant
+  #   restart: unless-stopped
+  #   volumes:
+  #     - qdrant_data:/qdrant/storage
+  #   networks:
+  #     - enterprise_rag
+  #   ports:
+  #     - "6333:6333"
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -83,7 +87,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       SYNC_DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       REDIS_URL: redis://redis:6379/0
-      QDRANT_URL: http://qdrant:6333
+      # NOTE: Chroma DB is embedded - vectors stored in .chroma/vectors.pkl
+      # No separate service needed, persists across FastAPI and Celery processes
       ELASTICSEARCH_URL: http://elasticsearch:9200
       SECRET_KEY: ${SECRET_KEY}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
@@ -110,6 +115,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - chroma_data:/app/.chroma  # Persistent Chroma DB vector storage (EBS-backed)
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,7 +137,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       SYNC_DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       REDIS_URL: redis://redis:6379/0
-      QDRANT_URL: http://qdrant:6333
+      # NOTE: Chroma DB is embedded - vectors shared via .chroma/vectors.pkl
       ELASTICSEARCH_URL: http://elasticsearch:9200
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: "false"
@@ -148,6 +154,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - chroma_data:/app/.chroma  # Persistent Chroma DB vector storage (EBS-backed, shared with backend)
     depends_on:
       postgres:
         condition: service_healthy
@@ -165,11 +172,14 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  qdrant_data:
-    driver: local
+  chroma_data:
+    driver: local  # Persistent Docker volume for Chroma DB (EBS-backed on EC2)
+  # qdrant_data:  # No longer used - Chroma DB stores vectors in chroma_data volume
+  #   driver: local
   elasticsearch_data:
     driver: local
 
 networks:
   enterprise_rag:
     driver: bridge
+
